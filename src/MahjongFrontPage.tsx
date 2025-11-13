@@ -46,6 +46,7 @@ type Round = {
   id: number;
   date: string; // YYYY-MM-DD
   ranking: number[]; // 참가 플레이어 id, index 0 = 1위
+  createdAt: string; // ISO 문자열 (저장 시각)
 };
 
 type PlayerStats = {
@@ -362,10 +363,13 @@ const MahjongFrontPage: React.FC<PageProps> = ({ mode, toggleColorMode }) => {
       return;
     }
 
+    const now = new Date();
+
     const newRound: Round = {
       id: Date.now(),
       date: selectedDate,
       ranking: currentRanking,
+      createdAt: now.toISOString(), // 저장 시각 ISO로 기록
     };
 
     setRounds((prev) => [newRound, ...prev]);
@@ -615,22 +619,39 @@ const MahjongFrontPage: React.FC<PageProps> = ({ mode, toggleColorMode }) => {
           <List sx={{ width: '100%' }}>
             {rounds
               .filter((r) => r.date === selectedDate)
-              .map((round) => (
-                <React.Fragment key={round.id}>
-                  <ListItem sx={{ width: '100%', py: 1 }}>
-                    <ListItemText
-                      primary={round.ranking
-                        .map((pid, idx) => {
-                          const p = playerMap[pid];
-                          return `${idx + 1}위: ${p?.name ?? '?'}`;
-                        })
-                        .join(' · ')}
-                      primaryTypographyProps={{ fontSize: '0.95rem' }}
-                    />
-                  </ListItem>
-                  <Divider component="li" />
-                </React.Fragment>
-              ))}
+              .map((round) => {
+                const d = new Date(round.createdAt);
+                const timeStr = isNaN(d.getTime())
+                  ? ''
+                  : d.toLocaleTimeString('ko-KR', {
+                      hour12: false,
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    }); // 예: 14:23
+
+                const rankingText = round.ranking
+                  .map((pid, _) => {
+                    const p = playerMap[pid];
+                    return `${p?.name ?? '?'}`;
+                  })
+                  .join(' · ');
+
+                return (
+                  <React.Fragment key={round.id}>
+                    <ListItem sx={{ width: '100%', py: 1 }}>
+                      <ListItemText
+                        primary={
+                          timeStr
+                            ? `${timeStr} · ${rankingText}` // "14:23 · 1위: 민수 · 2위: ..."
+                            : rankingText
+                        }
+                        primaryTypographyProps={{ fontSize: '0.95rem' }}
+                      />
+                    </ListItem>
+                    <Divider component="li" />
+                  </React.Fragment>
+                );
+              })}
           </List>
         )}
       </Section>
