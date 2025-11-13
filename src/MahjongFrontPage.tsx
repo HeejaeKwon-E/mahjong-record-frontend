@@ -15,6 +15,13 @@ import {
   Button,
   TextField,
   Divider,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  Snackbar,
+  Alert,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
@@ -76,6 +83,12 @@ const MahjongFrontPage: React.FC<PageProps> = ({ mode, toggleColorMode }) => {
 
   const [rounds, setRounds] = useState<Round[]>([]);
   const [tab, setTab] = useState<number>(0);
+
+  // 저장 확인 다이얼로그
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+
+  // 🔹 저장 완료 스낵바
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
 
   const playerMap = useMemo(
     () =>
@@ -164,10 +177,23 @@ const MahjongFrontPage: React.FC<PageProps> = ({ mode, toggleColorMode }) => {
     });
   };
 
-  // 라운드 저장 (4명 아니면 막기)
-  const handleSaveRound = () => {
+  // 🔹 저장 전에 다이얼로그 띄우기
+  const handleOpenConfirm = () => {
     if (currentRanking.length !== 4) {
       window.alert("마작은 4인 고정입니다. 참가자를 정확히 4명 선택해주세요.");
+      return;
+    }
+    setIsConfirmOpen(true);
+  };
+
+  const handleCloseConfirm = () => {
+    setIsConfirmOpen(false);
+  };
+
+  // 🔹 실제 저장 (다이얼로그에서 "저장")
+  const handleConfirmSave = () => {
+    if (currentRanking.length !== 4) {
+      setIsConfirmOpen(false);
       return;
     }
 
@@ -178,6 +204,19 @@ const MahjongFrontPage: React.FC<PageProps> = ({ mode, toggleColorMode }) => {
     };
 
     setRounds((prev) => [newRound, ...prev]);
+    setIsConfirmOpen(false);
+
+    // ✅ 저장 완료 스낵바 표시
+    setSnackbarOpen(true);
+  };
+
+  // 🔹 스낵바 닫기 핸들러
+  const handleSnackbarClose = (
+    _event?: React.SyntheticEvent | Event,
+    reason?: string
+  ) => {
+    if (reason === "clickaway") return;
+    setSnackbarOpen(false);
   };
 
   // 날짜 기준 통계
@@ -350,7 +389,7 @@ const MahjongFrontPage: React.FC<PageProps> = ({ mode, toggleColorMode }) => {
           <Button
             variant="contained"
             size="medium"
-            onClick={handleSaveRound}
+            onClick={handleOpenConfirm} // 확인 다이얼로그 오픈
             sx={{ px: 3, py: 1, fontSize: "0.95rem", borderRadius: 2 }}
           >
             이 라운드 저장
@@ -408,7 +447,11 @@ const MahjongFrontPage: React.FC<PageProps> = ({ mode, toggleColorMode }) => {
         >
           {rounds.filter((r) => r.date === selectedDate).length === 0 ? (
             <Box p={2.2}>
-              <Typography variant="body2" color="text.secondary" sx={{ fontSize: "0.95rem" }}>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ fontSize: "0.95rem" }}
+              >
                 아직 저장된 라운드가 없습니다.
               </Typography>
             </Box>
@@ -454,7 +497,7 @@ const MahjongFrontPage: React.FC<PageProps> = ({ mode, toggleColorMode }) => {
             width: "100%",
             boxSizing: "border-box",
             px: 2,
-            py: 1, // 조금 더 두툼하게
+            py: 1,
           }}
         >
           <Typography
@@ -500,7 +543,7 @@ const MahjongFrontPage: React.FC<PageProps> = ({ mode, toggleColorMode }) => {
           boxSizing: "border-box",
           px: 2.2,
           pt: 2.2,
-          pb: 11, // 아래 탭 높이 고려
+          pb: 11,
           display: "flex",
           flexDirection: "column",
           alignItems: "stretch",
@@ -540,6 +583,49 @@ const MahjongFrontPage: React.FC<PageProps> = ({ mode, toggleColorMode }) => {
           />
         </BottomNavigation>
       </Box>
+
+      {/* 🔹 저장 전 확인 다이얼로그 */}
+      <Dialog open={isConfirmOpen} onClose={handleCloseConfirm} fullWidth>
+        <DialogTitle>이 라운드를 저장할까요?</DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 1.5 }}>
+            {selectedDate} 라운드의 등수를 다음과 같이 저장합니다:
+          </DialogContentText>
+          <Box component="ul" sx={{ pl: 3, m: 0 }}>
+            {currentRanking.map((pid, idx) => {
+              const p = playerMap[pid];
+              return (
+                <li key={pid}>
+                  {idx + 1}위: {p?.name ?? "?"}
+                </li>
+              );
+            })}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseConfirm}>취소</Button>
+          <Button onClick={handleConfirmSave} variant="contained" color="primary">
+            저장
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ✅ 저장 완료 스낵바 */}
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={2500}
+        onClose={handleSnackbarClose}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert
+          onClose={handleSnackbarClose}
+          severity="success"
+          variant="filled"
+          sx={{ width: "100%" }}
+        >
+          라운드가 저장되었습니다!
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
