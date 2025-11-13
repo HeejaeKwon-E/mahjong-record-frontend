@@ -41,7 +41,7 @@ type Player = {
 type Round = {
   id: number;
   date: string; // YYYY-MM-DD
-  ranking: number[]; // 4명 id, index 0 = 1위
+  ranking: number[]; // 참가 플레이어 id, index 0 = 1위
 };
 
 type PlayerStats = {
@@ -56,6 +56,14 @@ interface PageProps {
   toggleColorMode: () => void;
 }
 
+type SnackbarSeverity = "success" | "error" | "info" | "warning";
+
+type SnackbarState = {
+  open: boolean;
+  message: string;
+  severity: SnackbarSeverity;
+};
+
 const initialPlayers: Player[] = [
   { id: 1, name: "민수" },
   { id: 2, name: "지훈" },
@@ -66,17 +74,26 @@ const initialPlayers: Player[] = [
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
 const MahjongFrontPage: React.FC<PageProps> = ({ mode, toggleColorMode }) => {
+  const today = todayStr();
+
+  // 🔹 전체 플레이어 (글로벌)
   const [players, setPlayers] = useState<Player[]>(initialPlayers);
+
+  // 🔹 날짜별 파티 멤버: { "2025-11-13": [1,2,3], ... }
+  const [datePlayers, setDatePlayers] = useState<Record<string, number[]>>({
+    [today]: initialPlayers.map((p) => p.id),
+  });
+
   const [newPlayerName, setNewPlayerName] = useState("");
 
-  const [selectedDate, setSelectedDate] = useState<string>(todayStr());
+  const [selectedDate, setSelectedDate] = useState<string>(today);
 
-  // 이번 판 참가자 (최대 4명)
+  // 🔹 이 라운드에 실제로 참여하는 플레이어 (최대 4명)
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<number[]>(
     initialPlayers.slice(0, 4).map((p) => p.id)
   );
 
-  // 참가자들 순위 배열
+  // 🔹 등수 순서
   const [currentRanking, setCurrentRanking] = useState<number[]>(
     initialPlayers.slice(0, 4).map((p) => p.id)
   );
@@ -87,8 +104,12 @@ const MahjongFrontPage: React.FC<PageProps> = ({ mode, toggleColorMode }) => {
   // 저장 확인 다이얼로그
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
-  // 🔹 저장 완료 스낵바
-  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  // 공통 스낵바
+  const [snackbar, setSnackbar] = useState<SnackbarState>({
+    open: false,
+    message: "",
+    severity: "success",
+  });
 
   const playerMap = useMemo(
     () =>
@@ -99,23 +120,86 @@ const MahjongFrontPage: React.FC<PageProps> = ({ mode, toggleColorMode }) => {
     [players]
   );
 
-  // 새 플레이어 추가
+  // 현재 날짜의 파티 멤버 id 리스트
+  const currentDatePlayerIds = datePlayers[selectedDate] ?? [];
+
+  // 현재 날짜의 파티 멤버 Player 객체 리스트
+  const currentDatePlayers: Player[] = currentDatePlayerIds
+    .map((id) => playerMap[id])
+    .filter(Boolean);
+
+  // 🔹 스낵바 helper
+  const showSnackbar = (message: string, severity: SnackbarSeverity) => {
+    setSnackbar({
+      open: true,
+      message,
+      severity,
+    });
+  };
+
+  const handleSnackbarClose = (
+    _event?: React.SyntheticEvent | Event,
+    reason?: string
+  ) => {
+    if (reason === "clickaway") return;
+    setSnackbar((prev) => ({ ...prev, open: false }));
+  };
+
+  // 🔹 날짜 변경 시: 그 날짜의 파티 멤버 불러오기 + 기본 4명 선택
+  const handleDateChange = (value: string) => {
+    const newDate = value || todayStr();
+    setSelectedDate(newDate);
+
+    const pool = datePlayers[newDate] ?? [];
+
+    const nextSelected = pool.slice(0, 4);
+    setSelectedPlayerIds(nextSelected);
+    setCurrentRanking(nextSelected);
+  };
+
+  // 🔹 새 플레이어 추가 (글로벌 + 현재 날짜 파티에 추가)
   const handleAddPlayer = () => {
     const trimmed = newPlayerName.trim();
-    if (!trimmed) return;
 
-    const nextId =
-      players.length > 0 ? Math.max(...players.map((p) => p.id)) + 1 : 1;
-    const newPlayer: Player = { id: nextId, name: trimmed };
+    if (!trimmed) {
+      showSnackbar("플레이어 이름을 입력해주세요.", "error");
+      return;
+    }
 
-    setPlayers((prev) => [...prev, newPlayer]);
+    // 이미 존재하는 플레이어면 그 id 재사용
+    let playerId: number;
+    const existing = players.find((p) => p.name === trimmed);
 
-    // 4명 미만이면 자동 참가자로도 추가
+    if (existing) {
+      playerId = existing.id;
+    } else {
+      const nextId =
+        players.length > 0 ? Math.max(...players.map((p) => p.id)) + 1 : 1;
+      const newPlayer: Player = { id: nextId, name: trimmed };
+      setPlayers((prev) => [...prev, newPlayer]);
+      playerId = nextId;
+    }
+
+    // 현재 날짜의 파티 멤버에 추가
+    setDatePlayers((prev) => {
+      const prevForDate = prev[selectedDate] ?? [];
+      if (prevForDate.includes(playerId)) {
+        return prev; // 이미 이 날짜 파티에 있음
+      }
+      return {
+        ...prev,
+        [selectedDate]: [...prevForDate, playerId],
+      };
+    });
+
+    // 이 라운드 참가자에도 최대 4명까지 자동 추가
     setSelectedPlayerIds((prevSelected) => {
-      if (prevSelected.length >= 4) return prevSelected;
+      if (prevSelected.includes(playerId) || prevSelected.length >= 4) {
+        return prevSelected;
+      }
+      const nextSelected = [...prevSelected, playerId];
 
-      const nextSelected = [...prevSelected, nextId];
-
+      // 순위 배열도 맞춰서 업데이트
       setCurrentRanking((prevRanking) => {
         const filtered = prevRanking.filter((id) =>
           nextSelected.includes(id)
@@ -128,9 +212,10 @@ const MahjongFrontPage: React.FC<PageProps> = ({ mode, toggleColorMode }) => {
     });
 
     setNewPlayerName("");
+    showSnackbar("플레이어가 추가/연결되었습니다.", "success");
   };
 
-  // Chip 클릭: 참가자 선택/해제 (최대 4명)
+  // 🔹 Chip 클릭: 이 라운드 참가자 선택/해제 (날짜 파티는 그대로 두고)
   const handleToggleParticipant = (playerId: number) => {
     setSelectedPlayerIds((prevSelected) => {
       const isSelected = prevSelected.includes(playerId);
@@ -143,6 +228,7 @@ const MahjongFrontPage: React.FC<PageProps> = ({ mode, toggleColorMode }) => {
         return nextSelected;
       } else {
         if (prevSelected.length >= 4) {
+          showSnackbar("한 라운드에는 최대 4명만 참가할 수 있습니다.", "error");
           return prevSelected;
         }
 
@@ -161,7 +247,7 @@ const MahjongFrontPage: React.FC<PageProps> = ({ mode, toggleColorMode }) => {
     });
   };
 
-  // 순위 위/아래 이동
+  // 🔹 순위 위/아래 이동
   const moveRank = (index: number, direction: "up" | "down") => {
     setCurrentRanking((prev) => {
       const newOrder = [...prev];
@@ -180,7 +266,10 @@ const MahjongFrontPage: React.FC<PageProps> = ({ mode, toggleColorMode }) => {
   // 🔹 저장 전에 다이얼로그 띄우기
   const handleOpenConfirm = () => {
     if (currentRanking.length !== 4) {
-      window.alert("마작은 4인 고정입니다. 참가자를 정확히 4명 선택해주세요.");
+      showSnackbar(
+        "마작은 4인 고정입니다. 참가자를 정확히 4명 선택해주세요.",
+        "error"
+      );
       return;
     }
     setIsConfirmOpen(true);
@@ -194,6 +283,7 @@ const MahjongFrontPage: React.FC<PageProps> = ({ mode, toggleColorMode }) => {
   const handleConfirmSave = () => {
     if (currentRanking.length !== 4) {
       setIsConfirmOpen(false);
+      showSnackbar("참가자가 4명이 아닙니다. 다시 확인해주세요.", "error");
       return;
     }
 
@@ -206,20 +296,10 @@ const MahjongFrontPage: React.FC<PageProps> = ({ mode, toggleColorMode }) => {
     setRounds((prev) => [newRound, ...prev]);
     setIsConfirmOpen(false);
 
-    // ✅ 저장 완료 스낵바 표시
-    setSnackbarOpen(true);
+    showSnackbar("라운드가 저장되었습니다!", "success");
   };
 
-  // 🔹 스낵바 닫기 핸들러
-  const handleSnackbarClose = (
-    _event?: React.SyntheticEvent | Event,
-    reason?: string
-  ) => {
-    if (reason === "clickaway") return;
-    setSnackbarOpen(false);
-  };
-
-  // 날짜 기준 통계
+  // 🔹 날짜 기준 통계
   const statsByPlayer: PlayerStats[] = useMemo(() => {
     const statsMap = new Map<
       number,
@@ -256,18 +336,24 @@ const MahjongFrontPage: React.FC<PageProps> = ({ mode, toggleColorMode }) => {
   // --- 탭 1: 기록 ---
   const renderRecordTab = () => (
     <>
-      {/* 참가자 선택 */}
+      {/* 날짜 파티 멤버 + 이 라운드 참가자 */}
       <Box mb={3} sx={{ width: "100%" }}>
         <Typography variant="subtitle1" gutterBottom sx={{ fontSize: "1.05rem" }}>
           플레이어 (참가자 {selectedPlayerIds.length}/4)
         </Typography>
 
+        {/* 🔹 이 날짜 파티 멤버 칩들, 줄바꿈 되도록 flexWrap */}
         <Stack
           direction="row"
           spacing={1.2}
-          sx={{ overflowX: "auto", pb: 1.5, width: "100%" }}
+          useFlexGap
+          sx={{
+            width: "100%",
+            pb: 1.5,
+            flexWrap: "wrap",
+          }}
         >
-          {players.map((player) => {
+          {currentDatePlayers.map((player) => {
             const selected = selectedPlayerIds.includes(player.id);
             const disabled = !selected && selectedPlayerIds.length >= 4;
 
@@ -291,6 +377,7 @@ const MahjongFrontPage: React.FC<PageProps> = ({ mode, toggleColorMode }) => {
           })}
         </Stack>
 
+        {/* 플레이어 추가: 이름 입력 → 글로벌 + 이 날짜에 연결 */}
         <Box
           mt={1.5}
           display="flex"
@@ -300,7 +387,7 @@ const MahjongFrontPage: React.FC<PageProps> = ({ mode, toggleColorMode }) => {
           <TextField
             fullWidth
             size="medium"
-            placeholder="새 플레이어 이름"
+            placeholder="플레이어 이름 추가"
             value={newPlayerName}
             onChange={(e) => setNewPlayerName(e.target.value)}
             InputProps={{
@@ -389,7 +476,7 @@ const MahjongFrontPage: React.FC<PageProps> = ({ mode, toggleColorMode }) => {
           <Button
             variant="contained"
             size="medium"
-            onClick={handleOpenConfirm} // 확인 다이얼로그 오픈
+            onClick={handleOpenConfirm}
             sx={{ px: 3, py: 1, fontSize: "0.95rem", borderRadius: 2 }}
           >
             이 라운드 저장
@@ -513,7 +600,7 @@ const MahjongFrontPage: React.FC<PageProps> = ({ mode, toggleColorMode }) => {
             type="date"
             size="small"
             value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
+            onChange={(e) => handleDateChange(e.target.value)}
             sx={{
               bgcolor: "background.paper",
               borderRadius: 2,
@@ -532,10 +619,10 @@ const MahjongFrontPage: React.FC<PageProps> = ({ mode, toggleColorMode }) => {
         </Toolbar>
       </AppBar>
 
-      {/* AppBar 높이만큼 여백 */}
+      {/* AppBar 공간 확보 */}
       <Toolbar />
 
-      {/* 메인 컨텐츠 영역 */}
+      {/* 메인 컨텐츠 */}
       <Box
         component="main"
         sx={{
@@ -584,7 +671,7 @@ const MahjongFrontPage: React.FC<PageProps> = ({ mode, toggleColorMode }) => {
         </BottomNavigation>
       </Box>
 
-      {/* 🔹 저장 전 확인 다이얼로그 */}
+      {/* 저장 전 확인 다이얼로그 */}
       <Dialog open={isConfirmOpen} onClose={handleCloseConfirm} fullWidth>
         <DialogTitle>이 라운드를 저장할까요?</DialogTitle>
         <DialogContent>
@@ -610,20 +697,20 @@ const MahjongFrontPage: React.FC<PageProps> = ({ mode, toggleColorMode }) => {
         </DialogActions>
       </Dialog>
 
-      {/* ✅ 저장 완료 스낵바 */}
+      {/* 공통 스낵바 */}
       <Snackbar
-        open={snackbarOpen}
+        open={snackbar.open}
         autoHideDuration={2500}
         onClose={handleSnackbarClose}
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >
         <Alert
           onClose={handleSnackbarClose}
-          severity="success"
+          severity={snackbar.severity}
           variant="filled"
           sx={{ width: "100%" }}
         >
-          라운드가 저장되었습니다!
+          {snackbar.message}
         </Alert>
       </Snackbar>
     </Box>
