@@ -1,62 +1,116 @@
-// src/mahjong/components/RecordTab/RoundOrderSection.tsx
-import React, { useState } from "react";
+import React from "react";
 import {
   Box,
   Button,
-  IconButton,
   List,
   ListItem,
   ListItemText,
 } from "@mui/material";
-import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
-import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import EmojiEventsIcon from "@mui/icons-material/EmojiEvents";
 
 import { useAtom } from "jotai";
 import {
   currentRankingAtom,
   playerMapAtom,
-  //roundsAtom,
-  //selectedDateAtom,
 } from "../../state/mahjongAtoms";
 import { Section } from "../Section";
 
+// dnd-kit
+import {
+  DndContext,
+  type DragEndEvent,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  arrayMove,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+
 type Props = {
   onOpenConfirm: () => void;
+};
+
+/** 개별 플레이어 한 줄 (드래그 가능한 행) */
+type SortableRowProps = {
+  id: number;
+  index: number;
+  name: string;
+};
+
+const SortableRow: React.FC<SortableRowProps> = ({ id, index, name }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <ListItem
+      ref={setNodeRef}
+      style={style}
+      sx={{
+        width: "100%",
+        py: 1.1,
+        borderRadius: 1.5,
+        mb: 0.3,
+        cursor: "grab",
+        bgcolor: isDragging ? "action.selected" : "transparent",
+        boxShadow: isDragging ? 3 : 0,
+        // 살짝 커지는 느낌
+        transformOrigin: "center",
+        "&:active": {
+          cursor: "grabbing",
+        },
+        transition:
+          "background-color 0.2s ease, box-shadow 0.15s ease",
+      }}
+      {...attributes}
+      {...listeners}
+    >
+      <ListItemText
+        primary={`${index + 1}위 – ${name}`}
+        primaryTypographyProps={{ fontSize: "1rem" }}
+      />
+    </ListItem>
+  );
 };
 
 export const RoundOrderSection: React.FC<Props> = ({ onOpenConfirm }) => {
   const [currentRanking, setCurrentRanking] = useAtom(currentRankingAtom);
   const [playerMap] = useAtom(playerMapAtom);
 
-  // 애니메이션용 로컬 state
-  const [lastMovedId, setLastMovedId] = useState<number | null>(null);
-  const [lastSwappedId, setLastSwappedId] = useState<number | null>(null);
+  // 마우스 + 터치 센서 (모바일에서도 드래그 되게)
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 6, // 6px 이상 움직였을 때만 드래그 시작 (실수 터치 방지)
+      },
+    })
+  );
 
-  const moveRank = (index: number, direction: "up" | "down") => {
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
     setCurrentRanking((prev) => {
-      const newOrder = [...prev];
-      const targetIndex = direction === "up" ? index - 1 : index + 1;
-
-      if (targetIndex < 0 || targetIndex >= newOrder.length) return prev;
-
-      const primaryId = newOrder[index];
-      const secondaryId = newOrder[targetIndex];
-
-      [newOrder[index], newOrder[targetIndex]] = [
-        newOrder[targetIndex],
-        newOrder[index],
-      ];
-
-      setLastMovedId(primaryId);
-      setLastSwappedId(secondaryId);
-
-      setTimeout(() => {
-        setLastMovedId((cur) => (cur === primaryId ? null : cur));
-        setLastSwappedId((cur) => (cur === secondaryId ? null : cur));
-      }, 300);
-
-      return newOrder;
+      const oldIndex = prev.indexOf(active.id as number);
+      const newIndex = prev.indexOf(over.id as number);
+      if (oldIndex === -1 || newIndex === -1) return prev;
+      return arrayMove(prev, oldIndex, newIndex);
     });
   };
 
@@ -65,60 +119,41 @@ export const RoundOrderSection: React.FC<Props> = ({ onOpenConfirm }) => {
       title="이번 라운드 등수"
       icon={<EmojiEventsIcon fontSize="small" />}
     >
-      <List sx={{ width: "100%" }}>
-        {currentRanking.map((pid, idx) => {
-          const player = playerMap[pid];
-          if (!player) return null;
-          const rank = idx + 1;
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext
+          items={currentRanking}
+          strategy={verticalListSortingStrategy}
+        >
+          <List sx={{ width: "100%" }}>
+            {currentRanking.map((pid, idx) => {
+              const player = playerMap[pid];
+              if (!player) return null;
 
-          const isPrimaryMoved = pid === lastMovedId;
-          const isSecondaryMoved = pid === lastSwappedId;
+              return (
+                <SortableRow
+                  key={pid}
+                  id={pid}
+                  index={idx}
+                  name={player.name}
+                />
+              );
+            })}
 
-          return (
-            <ListItem
-              key={pid}
-              sx={{
-                width: "100%",
-                py: 1.1,
-                borderRadius: 1.5,
-                mb: 0.3,
-                bgcolor: isPrimaryMoved ? "action.selected" : "transparent",
-                transform: isPrimaryMoved ? "scale(1.03)" : "scale(1)",
-                boxShadow: isPrimaryMoved ? 3 : 0,
-                border: isSecondaryMoved
-                  ? "1px solid"
-                  : "1px solid transparent",
-                borderColor: isSecondaryMoved ? "divider" : "transparent",
-                transition:
-                  "background-color 0.20s ease, transform 0.12s ease, box-shadow 0.12s ease, border-color 0.20s ease",
-              }}
-              secondaryAction={
-                <Box>
-                  <IconButton
-                    disabled={idx === 0}
-                    onClick={() => moveRank(idx, "up")}
-                    sx={{ p: 0.7 }}
-                  >
-                    <ArrowUpwardIcon fontSize="small" />
-                  </IconButton>
-                  <IconButton
-                    disabled={idx === currentRanking.length - 1}
-                    onClick={() => moveRank(idx, "down")}
-                    sx={{ p: 0.7 }}
-                  >
-                    <ArrowDownwardIcon fontSize="small" />
-                  </IconButton>
-                </Box>
-              }
-            >
-              <ListItemText
-                primary={`${rank}위 – ${player.name}`}
-                primaryTypographyProps={{ fontSize: "1rem" }}
-              />
-            </ListItem>
-          );
-        })}
-      </List>
+            {currentRanking.length === 0 && (
+              <ListItem sx={{ width: "100%", py: 1.4 }}>
+                <ListItemText
+                  primary="참가자를 선택하면 순위를 정할 수 있어요."
+                  primaryTypographyProps={{ fontSize: "0.95rem" }}
+                />
+              </ListItem>
+            )}
+          </List>
+        </SortableContext>
+      </DndContext>
 
       <Box
         mt={1.8}
