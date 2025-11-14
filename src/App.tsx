@@ -1,7 +1,7 @@
 // App.tsx
 import React, { useMemo, useState } from "react";
 import { ThemeProvider, createTheme, CssBaseline } from "@mui/material";
-import MahjongFrontPage from "./MahjongFrontPage";
+import MahjongPage from "./pages/MahjongPage";
 
 const App: React.FC = () => {
   // localStorage에서 모드 불러오기
@@ -38,7 +38,7 @@ const App: React.FC = () => {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <MahjongFrontPage toggleColorMode={toggleColorMode} mode={mode} />
+      <MahjongPage toggleColorMode={toggleColorMode} mode={mode} />
     </ThemeProvider>
   );
 };
