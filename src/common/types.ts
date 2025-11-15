@@ -8,7 +8,7 @@ export type Round = {
   id: number;
   date: string;       // YYYY-MM-DD
   ranking: number[];  // player ids
-  createdAt: string;  // ISO datetime
+  created_at: string;  // ISO datetime
 };
 
 export type PlayerStats = {

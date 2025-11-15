@@ -1,4 +1,4 @@
-import React from "react";
+import React from 'react';
 import {
   Box,
   Divider,
@@ -6,16 +6,16 @@ import {
   ListItem,
   ListItemText,
   Typography,
-} from "@mui/material";
-import HistoryIcon from "@mui/icons-material/History";
-import { useAtom } from "jotai";
+} from '@mui/material';
+import HistoryIcon from '@mui/icons-material/History';
+import { useAtom } from 'jotai';
 
 import {
   roundsAtom,
   selectedDateAtom,
   playerMapAtom,
-} from "../../state/mahjongAtoms";
-import { Section } from "../Section";
+} from '../../state/mahjongAtoms';
+import { Section } from '../Section';
 
 export const RoundHistorySection: React.FC = () => {
   const [rounds] = useAtom(roundsAtom);
@@ -34,40 +34,38 @@ export const RoundHistorySection: React.FC = () => {
           <Typography
             variant="body2"
             color="text.secondary"
-            sx={{ fontSize: "0.95rem" }}
+            sx={{ fontSize: '0.95rem' }}
           >
             아직 저장된 라운드가 없습니다.
           </Typography>
         </Box>
       ) : (
-        <List sx={{ width: "100%" }}>
+        <List sx={{ width: '100%' }}>
           {roundsForDate.map((round) => {
-            const d = new Date(round.createdAt);
+            const d = new Date(round.created_at);
             const timeStr = isNaN(d.getTime())
-              ? ""
-              : d.toLocaleTimeString("ko-KR", {
+              ? ''
+              : d.toLocaleTimeString('ko-KR', {
                   hour12: false,
-                  hour: "2-digit",
-                  minute: "2-digit",
+                  hour: '2-digit',
+                  minute: '2-digit',
                 }); // 예: 14:23
 
             const rankingText = round.ranking
-              .map((pid, idx) => {
+              .map((pid) => {
                 const p = playerMap[pid];
-                return `${idx + 1}위: ${p?.name ?? "?"}`;
+                return `${p?.name ?? '?'}`;
               })
-              .join(" · ");
+              .join(' · ');
 
             return (
               <React.Fragment key={round.id}>
-                <ListItem sx={{ width: "100%", py: 1 }}>
+                <ListItem sx={{ width: '100%', py: 1 }}>
                   <ListItemText
                     primary={
-                      timeStr
-                        ? `${timeStr} · ${rankingText}`
-                        : rankingText
+                      timeStr ? `${timeStr} · ${rankingText}` : rankingText
                     }
-                    primaryTypographyProps={{ fontSize: "0.95rem" }}
+                    primaryTypographyProps={{ fontSize: '0.95rem' }}
                   />
                 </ListItem>
                 <Divider component="li" />

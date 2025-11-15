@@ -1,5 +1,5 @@
 // src/mahjong/MahjongPage.tsx
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback } from 'react';
 import {
   AppBar,
   Toolbar,
@@ -18,13 +18,13 @@ import {
   Snackbar,
   Alert,
   //ToolbarProps,
-} from "@mui/material";
-import EditNoteIcon from "@mui/icons-material/EditNote";
-import BarChartIcon from "@mui/icons-material/BarChart";
-import DarkModeIcon from "@mui/icons-material/DarkMode";
-import LightModeIcon from "@mui/icons-material/LightMode";
+} from '@mui/material';
+import EditNoteIcon from '@mui/icons-material/EditNote';
+import BarChartIcon from '@mui/icons-material/BarChart';
+import DarkModeIcon from '@mui/icons-material/DarkMode';
+import LightModeIcon from '@mui/icons-material/LightMode';
 
-import { useAtom } from "jotai";
+import { useAtom } from 'jotai';
 
 // jotai atoms
 import {
@@ -34,15 +34,16 @@ import {
   currentRankingAtom,
   roundsAtom,
   playerMapAtom,
-} from "../state/mahjongAtoms";
+} from '../state/mahjongAtoms';
 
 // 섹션/탭 컴포넌트들
-import { PlayerSection } from "../components/RecordTab/PlayerSection";
-import { RoundOrderSection } from "../components/RecordTab/RoundOrderSection";
-import { StatsSummarySection } from "../components/StatsTab/StatsSummarySection";
-import { RoundHistorySection } from "../components/StatsTab/RoundHistorySection";
+import { PlayerSection } from '../components/RecordTab/PlayerSection';
+import { RoundOrderSection } from '../components/RecordTab/RoundOrderSection';
+import { StatsSummarySection } from '../components/StatsTab/StatsSummarySection';
+import { RoundHistorySection } from '../components/StatsTab/RoundHistorySection';
+import { useServerSync } from '../hooks/useServerSync';
 
-type SnackbarSeverity = "success" | "error" | "info" | "warning";
+type SnackbarSeverity = 'success' | 'error' | 'info' | 'warning';
 
 type SnackbarState = {
   open: boolean;
@@ -51,21 +52,18 @@ type SnackbarState = {
 };
 
 interface MahjongPageProps {
-  mode: "light" | "dark";
+  mode: 'light' | 'dark';
   toggleColorMode: () => void;
 }
 
-const MahjongPage: React.FC<MahjongPageProps> = ({
-  mode,
-  toggleColorMode,
-}) => {
+const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
+  const { reloadDateData } = useServerSync();
   // ▼ jotai 상태
   const [selectedDate, setSelectedDate] = useAtom(selectedDateAtom);
   const [datePlayers] = useAtom(datePlayersAtom);
   const [, setSelectedPlayerIds] = useAtom(selectedPlayerIdsAtom);
   const [currentRanking] = useAtom(currentRankingAtom);
   const [, setCurrentRanking] = useAtom(currentRankingAtom);
-  const [, setRounds] = useAtom(roundsAtom);
   const [playerMap] = useAtom(playerMapAtom);
 
   // ▼ 로컬 UI 상태
@@ -73,8 +71,8 @@ const MahjongPage: React.FC<MahjongPageProps> = ({
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [snackbar, setSnackbar] = useState<SnackbarState>({
     open: false,
-    message: "",
-    severity: "success",
+    message: '',
+    severity: 'success',
   });
 
   // 🔹 공통 스낵바 helper
@@ -82,14 +80,14 @@ const MahjongPage: React.FC<MahjongPageProps> = ({
     (message: string, severity: SnackbarSeverity) => {
       setSnackbar({ open: true, message, severity });
     },
-    []
+    [],
   );
 
   const handleSnackbarClose = (
     _event?: React.SyntheticEvent | Event,
-    reason?: string
+    reason?: string,
   ) => {
-    if (reason === "clickaway") return;
+    if (reason === 'clickaway') return;
     setSnackbar((prev) => ({ ...prev, open: false }));
   };
 
@@ -107,11 +105,9 @@ const MahjongPage: React.FC<MahjongPageProps> = ({
 
   // 🔹 라운드 저장 전 확인 다이얼로그 열기
   const handleOpenConfirm = () => {
+    // currentRanking 또는 "이번 라운드에 실제로 포함된 플레이어 ID" 기준
     if (currentRanking.length !== 4) {
-      showSnackbar(
-        "마작은 4인 고정입니다. 참가자를 정확히 4명 선택해주세요.",
-        "error"
-      );
+      showSnackbar('라운드는 정확히 4명이 있어야 저장할 수 있어요.', 'warning');
       return;
     }
     setIsConfirmOpen(true);
@@ -122,27 +118,39 @@ const MahjongPage: React.FC<MahjongPageProps> = ({
   };
 
   // 🔹 실제로 라운드 저장
-  const handleConfirmSave = () => {
+  const handleConfirmSave = async () => {
     if (currentRanking.length !== 4) {
       setIsConfirmOpen(false);
-      showSnackbar("참가자가 4명이 아닙니다. 다시 확인해주세요.", "error");
+      showSnackbar('참가자가 4명이 아닙니다. 다시 확인해주세요.', 'error');
       return;
     }
 
-    const now = new Date();
+    try {
+      const res = await fetch('/api/rounds', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date: selectedDate,
+          ranking: currentRanking, // [playerId1, playerId2, ...]
+        }),
+      });
 
-    setRounds((prev) => [
-      {
-        id: Date.now(),
-        date: selectedDate,
-        ranking: currentRanking,
-        createdAt: now.toISOString(),
-      },
-      ...prev,
-    ]);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || '라운드 저장 실패');
+      }
 
-    setIsConfirmOpen(false);
-    showSnackbar("라운드가 저장되었습니다!", "success");
+      // 여기서 round_id를 써서 로컬에 직접 push하지 않고,
+      // 서버에 실제로 들어간 상태를 다시 GET
+      await reloadDateData();
+
+      setIsConfirmOpen(false);
+      showSnackbar('라운드가 저장되었습니다!', 'success');
+    } catch (err) {
+      console.error(err);
+      setIsConfirmOpen(false);
+      showSnackbar('라운드 저장 중 오류가 발생했습니다.', 'error');
+    }
   };
 
   // 🔹 Record 탭 렌더
@@ -164,17 +172,17 @@ const MahjongPage: React.FC<MahjongPageProps> = ({
   return (
     <Box
       sx={{
-        width: "100vw",
-        minHeight: "100vh",
-        bgcolor: "background.default",
+        width: '100vw',
+        minHeight: '100vh',
+        bgcolor: 'background.default',
       }}
     >
       {/* 상단 AppBar */}
       <AppBar position="fixed">
         <Toolbar
           sx={{
-            width: "100%",
-            boxSizing: "border-box",
+            width: '100%',
+            boxSizing: 'border-box',
             px: 2,
             py: 1,
           }}
@@ -194,19 +202,19 @@ const MahjongPage: React.FC<MahjongPageProps> = ({
             value={selectedDate}
             onChange={(e) => handleDateChange(e.target.value)}
             sx={{
-              bgcolor: "background.paper",
+              bgcolor: 'background.paper',
               borderRadius: 2,
               width: 150,
               mr: 1.2,
-              "& .MuiInputBase-input": {
-                fontSize: "0.9rem",
+              '& .MuiInputBase-input': {
+                fontSize: '0.9rem',
                 py: 0.9,
               },
             }}
           />
 
           <IconButton color="inherit" onClick={toggleColorMode} sx={{ p: 1 }}>
-            {mode === "dark" ? <LightModeIcon /> : <DarkModeIcon />}
+            {mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
           </IconButton>
         </Toolbar>
       </AppBar>
@@ -218,14 +226,14 @@ const MahjongPage: React.FC<MahjongPageProps> = ({
       <Box
         component="main"
         sx={{
-          width: "100%",
-          boxSizing: "border-box",
+          width: '100%',
+          boxSizing: 'border-box',
           px: 2.2,
           pt: 2.2,
           pb: 11,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "stretch",
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'stretch',
           gap: 2.5,
         }}
       >
@@ -236,12 +244,12 @@ const MahjongPage: React.FC<MahjongPageProps> = ({
       {/* 하단 탭 */}
       <Box
         sx={{
-          position: "fixed",
+          position: 'fixed',
           bottom: 0,
           left: 0,
           right: 0,
           borderTop: 1,
-          borderColor: "divider",
+          borderColor: 'divider',
         }}
       >
         <BottomNavigation
@@ -254,14 +262,14 @@ const MahjongPage: React.FC<MahjongPageProps> = ({
             label="기록"
             icon={<EditNoteIcon />}
             sx={{
-              "& .MuiBottomNavigationAction-label": { fontSize: "0.8rem" },
+              '& .MuiBottomNavigationAction-label': { fontSize: '0.8rem' },
             }}
           />
           <BottomNavigationAction
             label="통계"
             icon={<BarChartIcon />}
             sx={{
-              "& .MuiBottomNavigationAction-label": { fontSize: "0.8rem" },
+              '& .MuiBottomNavigationAction-label': { fontSize: '0.8rem' },
             }}
           />
         </BottomNavigation>
@@ -279,7 +287,7 @@ const MahjongPage: React.FC<MahjongPageProps> = ({
               const p = playerMap[pid];
               return (
                 <li key={pid}>
-                  {idx + 1}위: {p?.name ?? "?"}
+                  {idx + 1}위: {p?.name ?? '?'}
                 </li>
               );
             })}
@@ -302,13 +310,13 @@ const MahjongPage: React.FC<MahjongPageProps> = ({
         open={snackbar.open}
         autoHideDuration={2500}
         onClose={handleSnackbarClose}
-        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
         <Alert
           onClose={handleSnackbarClose}
           severity={snackbar.severity}
           variant="filled"
-          sx={{ width: "100%" }}
+          sx={{ width: '100%' }}
         >
           {snackbar.message}
         </Alert>
