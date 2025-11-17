@@ -11,7 +11,7 @@ import {
   playersAtom,
 } from '../../state/mahjongAtoms';
 import { Section } from '../Section';
-import { useServerSync } from '../../hooks/useServerSync';
+import { usePlayersActions } from '../../hooks/usePlayersActions';
 
 type PlayerSectionProps = {
   showSnackbar: (
@@ -23,14 +23,13 @@ type PlayerSectionProps = {
 export const PlayerSection: React.FC<PlayerSectionProps> = ({
   showSnackbar,
 }) => {
+  const { reloadPlayers } = usePlayersActions(); // ✅ 이제는 사이드이펙트 없음
+  const [, setCurrentRanking] = useAtom(currentRankingAtom);
+  const [players] = useAtom(playersAtom);
   const [selectedPlayerIds, setSelectedPlayerIds] = useAtom(
     selectedPlayerIdsAtom,
   );
-  const [, setCurrentRanking] = useAtom(currentRankingAtom);
-  const [players] = useAtom(playersAtom);
-
   const [newPlayerName, setNewPlayerName] = useState('');
-  const { reloadPlayers } = useServerSync(); // 🔹 여기서 가져오기
 
   const handleAddPlayer = async () => {
     const trimmed = newPlayerName.trim();

@@ -1,6 +1,6 @@
 // src/mahjong/components/Section.tsx
-import { Box, Paper, Typography } from "@mui/material";
-import React from "react";
+import { Box, Paper, Typography } from '@mui/material';
+import React from 'react';
 
 type SectionProps = {
   title: string;
@@ -8,17 +8,13 @@ type SectionProps = {
   children: React.ReactNode;
 };
 
-export const Section: React.FC<SectionProps> = ({
-  title,
-  icon,
-  children,
-}) => {
+export const Section: React.FC<SectionProps> = ({ title, icon, children }) => {
   return (
-    <Box mb={3} sx={{ width: "100%" }}>
+    <Box mb={3} sx={{ width: '100%' }}>
       <Paper
         variant="outlined"
         sx={{
-          width: "100%",
+          width: '100%',
           borderRadius: 2,
           p: 1.8,
           pt: 1.6,
@@ -27,8 +23,8 @@ export const Section: React.FC<SectionProps> = ({
       >
         <Box
           sx={{
-            display: "flex",
-            alignItems: "center",
+            display: 'flex',
+            alignItems: 'center',
             mb: 1.6,
           }}
         >
@@ -37,18 +33,18 @@ export const Section: React.FC<SectionProps> = ({
               width: 4,
               height: 24,
               borderRadius: 2,
-              bgcolor: "primary.main",
+              bgcolor: 'primary.main',
               mr: 1.4,
             }}
           />
           {icon && (
-            <Box sx={{ mr: 1, display: "flex", alignItems: "center" }}>
+            <Box sx={{ mr: 1, display: 'flex', alignItems: 'center' }}>
               {icon}
             </Box>
           )}
           <Typography
             variant="subtitle1"
-            sx={{ fontSize: "1.05rem", fontWeight: 600 }}
+            sx={{ fontSize: '1.05rem', fontWeight: 600 }}
           >
             {title}
           </Typography>

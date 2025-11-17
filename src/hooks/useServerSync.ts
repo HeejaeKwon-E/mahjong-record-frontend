@@ -1,47 +1,46 @@
 // src/mahjong/hooks/useServerSync.ts
-import { useEffect, useCallback } from "react";
-import { useAtom } from "jotai";
+import { useEffect, useCallback } from 'react';
+import { useAtom } from 'jotai';
 import {
-  playersAtom,
   roundsAtom,
   selectedDateAtom,
   selectedPlayerIdsAtom,
   currentRankingAtom,
-} from "../state/mahjongAtoms";
-import type { Player, Round } from "../common/types";
+  datePlayersAtom,
+} from '../state/mahjongAtoms';
+import type { Player, Round } from '../common/types';
 
 export function useServerSync() {
   const [selectedDate] = useAtom(selectedDateAtom);
-  const [, setPlayers] = useAtom(playersAtom);
   const [, setRounds] = useAtom(roundsAtom);
+  const [, setDatePlayers] = useAtom(datePlayersAtom);
   const [, setSelectedPlayerIds] = useAtom(selectedPlayerIdsAtom);
   const [, setCurrentRanking] = useAtom(currentRankingAtom);
-
-  // 전체 플레이어 (앱 처음 켤 때 한 번)
-  const reloadPlayers = useCallback(async () => {
-    try {
-      const res = await fetch("/api/players");
-      if (!res.ok) throw new Error("failed to fetch players");
-      const data = await res.json();
-      const safe = Array.isArray(data) ? (data as Player[]) : [];
-      setPlayers(safe);
-    } catch (e) {
-      console.error(e);
-      setPlayers([]);
-    }
-  }, [setPlayers]);
 
   // 선택된 날짜 기준 라운드 + 기본 선택 플레이어 설정
   const reloadDateData = useCallback(async () => {
     try {
-      const res = await fetch(
-        `/api/rounds?date=${encodeURIComponent(selectedDate)}`
-      );
-      if (!res.ok) throw new Error("failed to fetch rounds");
-      const data = await res.json();
-      const safeRounds = Array.isArray(data) ? (data as Round[]) : [];
+      const [roundsRes, playersByDateRes] = await Promise.all([
+        fetch(`/api/rounds/by-date?date=${encodeURIComponent(selectedDate)}`),
+        fetch(`/api/players/by-date?date=${encodeURIComponent(selectedDate)}`),
+      ]);
+
+      if (!roundsRes.ok) throw new Error('failed to fetch rounds');
+      if (!playersByDateRes.ok)
+        throw new Error('failed to fetch players by date');
+
+      const roundsData = await roundsRes.json();
+      const playersByDateData = await playersByDateRes.json();
+
+      const safeRounds = Array.isArray(roundsData)
+        ? (roundsData as Round[])
+        : [];
+      const safeDatePlayers = Array.isArray(playersByDateData)
+        ? (playersByDateData as Player[])
+        : [];
 
       setRounds(safeRounds);
+      setDatePlayers(safeDatePlayers);
 
       // 🔹 여기서 "그 날짜에 이미 기록된 플레이어"를 기본 selected로 세팅
       if (safeRounds.length > 0) {
@@ -62,18 +61,21 @@ export function useServerSync() {
     } catch (e) {
       console.error(e);
       setRounds([]);
+      setDatePlayers([]);
       setSelectedPlayerIds([]);
       setCurrentRanking([]);
     }
-  }, [selectedDate, setRounds, setSelectedPlayerIds, setCurrentRanking]);
-
-  useEffect(() => {
-    reloadPlayers();
-  }, [reloadPlayers]);
+  }, [
+    selectedDate,
+    setRounds,
+    setDatePlayers,
+    setSelectedPlayerIds,
+    setCurrentRanking,
+  ]);
 
   useEffect(() => {
     reloadDateData();
   }, [reloadDateData]);
 
-  return { reloadPlayers, reloadDateData };
+  return { reloadDateData };
 }

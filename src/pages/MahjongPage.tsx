@@ -29,10 +29,8 @@ import { useAtom } from 'jotai';
 // jotai atoms
 import {
   selectedDateAtom,
-  datePlayersAtom,
   selectedPlayerIdsAtom,
   currentRankingAtom,
-  roundsAtom,
   playerMapAtom,
 } from '../state/mahjongAtoms';
 
@@ -59,12 +57,11 @@ interface MahjongPageProps {
 const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
   const { reloadDateData } = useServerSync();
   // ▼ jotai 상태
-  const [selectedDate, setSelectedDate] = useAtom(selectedDateAtom);
-  const [datePlayers] = useAtom(datePlayersAtom);
-  const [, setSelectedPlayerIds] = useAtom(selectedPlayerIdsAtom);
-  const [currentRanking] = useAtom(currentRankingAtom);
-  const [, setCurrentRanking] = useAtom(currentRankingAtom);
   const [playerMap] = useAtom(playerMapAtom);
+  const [currentRanking] = useAtom(currentRankingAtom);
+  const [selectedDate, setSelectedDate] = useAtom(selectedDateAtom);
+  const [, setCurrentRanking] = useAtom(currentRankingAtom);
+  const [, setSelectedPlayerIds] = useAtom(selectedPlayerIdsAtom);
 
   // ▼ 로컬 UI 상태
   const [tab, setTab] = useState<number>(0);
@@ -93,14 +90,18 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
 
   // 🔹 날짜 변경 시: 그 날짜의 파티 멤버 기준으로 selected/순위 셋업
   const handleDateChange = (value: string) => {
-    const newDate = value || new Date().toISOString().slice(0, 10);
+    const newDate =
+      value && value.trim().length > 0
+        ? value
+        : new Date().toISOString().slice(0, 10);
+
+    // 1) 날짜만 먼저 변경
     setSelectedDate(newDate);
 
-    const pool = datePlayers[newDate] ?? [];
-    const nextSelected = pool.slice(0, 4);
-
-    setSelectedPlayerIds(nextSelected);
-    setCurrentRanking(nextSelected);
+    // 2) 이 시점에는 아직 새 날짜 데이터가 안 들어왔으니
+    //    선택/순위는 일단 초기화
+    setSelectedPlayerIds([]);
+    setCurrentRanking([]);
   };
 
   // 🔹 라운드 저장 전 확인 다이얼로그 열기
@@ -150,6 +151,14 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
       console.error(err);
       setIsConfirmOpen(false);
       showSnackbar('라운드 저장 중 오류가 발생했습니다.', 'error');
+    }
+  };
+  const handleTabChange = (_: React.SyntheticEvent, value: number) => {
+    setTab(value);
+
+    // 통계 탭으로 들어올 때마다 날짜별 데이터 새로고침
+    if (value === 1) {
+      reloadDateData();
     }
   };
 
@@ -254,7 +263,7 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
       >
         <BottomNavigation
           value={tab}
-          onChange={(_, v) => setTab(v)}
+          onChange={handleTabChange}
           showLabels
           sx={{ height: 64 }}
         >
