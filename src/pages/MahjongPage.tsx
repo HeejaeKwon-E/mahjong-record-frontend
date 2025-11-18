@@ -302,7 +302,14 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
             })}
           </Box>
         </DialogContent>
-        <DialogActions>
+        <DialogActions
+          sx={{
+            justifyContent: 'space-between',
+            px: 3,
+            pb: 2,
+            gap: 2,
+          }}
+        >
           <Button onClick={handleCloseConfirm}>취소</Button>
           <Button
             onClick={handleConfirmSave}

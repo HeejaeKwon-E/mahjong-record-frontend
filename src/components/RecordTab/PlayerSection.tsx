@@ -1,6 +1,18 @@
 // src/mahjong/components/RecordTab/PlayerSection.tsx
 import React, { useState } from 'react';
-import { Box, Chip, IconButton, Stack, TextField } from '@mui/material';
+import {
+  Box,
+  Button,
+  Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  IconButton,
+  Stack,
+  TextField,
+} from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import GroupIcon from '@mui/icons-material/Group';
 import { useAtom } from 'jotai';
@@ -30,10 +42,26 @@ export const PlayerSection: React.FC<PlayerSectionProps> = ({
     selectedPlayerIdsAtom,
   );
   const [newPlayerName, setNewPlayerName] = useState('');
+  // 🔹 "플레이어 추가" 확인 다이얼로그 상태
+  const [isAddConfirmOpen, setIsAddConfirmOpen] = useState(false);
 
+  const handleOpenAddConfirm = () => {
+    const trimmed = newPlayerName.trim();
+    if (!trimmed) {
+      showSnackbar('이름을 입력해주세요.', 'warning');
+      return;
+    }
+    // 여기서는 아직 서버 호출 안 하고, 단지 "정말 추가할래?"만 묻는다
+    setIsAddConfirmOpen(true);
+  };
+
+  const handleCloseAddConfirm = () => {
+    setIsAddConfirmOpen(false);
+  };
   const handleAddPlayer = async () => {
     const trimmed = newPlayerName.trim();
     if (!trimmed) {
+      setIsAddConfirmOpen(false);
       showSnackbar('이름을 입력해주세요.', 'warning');
       return;
     }
@@ -55,9 +83,11 @@ export const PlayerSection: React.FC<PlayerSectionProps> = ({
       await reloadPlayers();
 
       setNewPlayerName('');
+      setIsAddConfirmOpen(false);
       showSnackbar('플레이어를 추가했습니다.', 'success');
     } catch (err) {
       console.error(err);
+      setIsAddConfirmOpen(false);
       showSnackbar('플레이어 추가 중 오류가 발생했습니다.', 'error');
     }
   };
@@ -144,10 +174,43 @@ export const PlayerSection: React.FC<PlayerSectionProps> = ({
             sx: { fontSize: '0.98rem', py: 0.7 },
           }}
         />
-        <IconButton color="primary" onClick={handleAddPlayer} sx={{ p: 1.2 }}>
+        <IconButton
+          color="primary"
+          onClick={handleOpenAddConfirm}
+          sx={{ p: 1.2 }}
+        >
           <AddIcon />
         </IconButton>
       </Box>
+
+      {/* 🔹 플레이어 추가 확인 다이얼로그 */}
+      <Dialog open={isAddConfirmOpen} onClose={handleCloseAddConfirm} fullWidth>
+        <DialogTitle>플레이어를 추가할까요?</DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 1 }}>
+            새 플레이어 이름:
+          </DialogContentText>
+          <DialogContentText sx={{ fontWeight: 600 }}>
+            “{newPlayerName.trim()}”
+          </DialogContentText>
+          <DialogContentText sx={{ mt: 1.5 }} color="text.secondary">
+            이미 존재하는 이름과 겹칠 수 있으니 한 번 더 확인해 주세요.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions
+          sx={{
+            justifyContent: 'space-between',
+            px: 3,
+            pb: 2,
+            gap: 2,
+          }}
+        >
+          <Button onClick={handleCloseAddConfirm}>취소</Button>
+          <Button onClick={handleAddPlayer} variant="contained" color="primary">
+            추가
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Section>
   );
 };
