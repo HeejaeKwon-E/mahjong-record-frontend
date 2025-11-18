@@ -1,6 +1,17 @@
+// src/mahjong/components/RecordTab/RoundOrderSection.tsx
 import React from 'react';
-import { Box, Button, List, ListItem, ListItemText } from '@mui/material';
+import {
+  Box,
+  Button,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
+  IconButton,
+  Typography,
+} from '@mui/material';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
+import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 
 import { useAtom } from 'jotai';
 import { currentRankingAtom, playerMapAtom } from '../../state/mahjongAtoms';
@@ -22,9 +33,41 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { amber, brown, grey } from '@mui/material/colors';
 
 type Props = {
   onOpenConfirm: () => void;
+};
+
+/** 순위 뱃지 색상 헬퍼 */
+const getRankColor = (rank: number) => {
+  switch (rank) {
+    case 1:
+      // 🥇 금색: 살짝 밝은 호박색 계열
+      return amber[400]; // or amber[500]
+    case 2:
+      // 🥈 은색: 밝은 회색
+      return grey[300]; // or grey[400]
+    case 3:
+      // 🥉 동색: 주황/갈색 계열
+      return brown[500]; // or deepOrange[500]
+    default:
+      // 그 외: 흐린 회색
+      return ''; //grey[500];
+  }
+};
+const getRankTextColor = (rank: number) => {
+  switch (rank) {
+    case 1:
+      // amber[400] 바탕엔 진한 글자가 잘 보임
+      return 'black';
+    case 2:
+      return 'black'; // grey[300]도 밝아서 검정이 잘 보임
+    case 3:
+      return 'common.white'; // deepOrange[400] 위에는 흰색
+    default:
+      return ''; //'common.white';
+  }
 };
 
 /** 개별 플레이어 한 줄 (드래그 가능한 행) */
@@ -49,6 +92,8 @@ const SortableRow: React.FC<SortableRowProps> = ({ id, index, name }) => {
     transition,
   };
 
+  const rank = index + 1;
+
   return (
     <ListItem
       ref={setNodeRef}
@@ -56,25 +101,73 @@ const SortableRow: React.FC<SortableRowProps> = ({ id, index, name }) => {
       sx={{
         width: '100%',
         py: 1.1,
-        borderRadius: 1.5,
-        mb: 0.3,
-        cursor: 'grab',
-        bgcolor: isDragging ? 'action.selected' : 'transparent',
+        px: 1.3,
+        mb: 0.6,
+        borderRadius: 2,
+        border: '1px solid',
+        borderColor: isDragging ? 'primary.main' : 'divider',
+        bgcolor: isDragging ? 'action.selected' : 'background.paper',
         boxShadow: isDragging ? 3 : 0,
-        // 살짝 커지는 느낌
-        transformOrigin: 'center',
+        cursor: 'grab',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1.4,
         '&:active': {
           cursor: 'grabbing',
         },
-        transition: 'background-color 0.2s ease, box-shadow 0.15s ease',
+        transition:
+          'background-color 0.2s ease, box-shadow 0.15s ease, border-color 0.15s ease',
       }}
+      // 🔹 이제 행 전체가 드래그 영역
       {...attributes}
       {...listeners}
     >
+      {/* 순위 뱃지 */}
+      <ListItemIcon
+        sx={{
+          minWidth: 0,
+          mr: 1.2,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Box
+          sx={{
+            width: 28,
+            height: 28,
+            borderRadius: '50%',
+            bgcolor: getRankColor(rank),
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: getRankTextColor(rank),
+            fontSize: '0.9rem',
+            fontWeight: 700,
+          }}
+        >
+          {rank}
+        </Box>
+      </ListItemIcon>
+
+      {/* 이름 텍스트 */}
       <ListItemText
-        primary={`${index + 1}위 – ${name}`}
-        primaryTypographyProps={{ fontSize: '1rem' }}
+        primary={name}
+        primaryTypographyProps={{
+          fontSize: '1rem',
+          fontWeight: 500,
+        }}
       />
+
+      {/* 드래그 가능 힌트용 아이콘 (실제 드래그 리스너는 없음) */}
+      <IconButton
+        edge="end"
+        size="small"
+        sx={{ ml: 1, cursor: 'inherit' }} // 행 전체가 grab 이니까 얘도 맞춰줌
+        disableRipple
+      >
+        <DragIndicatorIcon fontSize="small" />
+      </IconButton>
     </ListItem>
   );
 };
@@ -109,6 +202,15 @@ export const RoundOrderSection: React.FC<Props> = ({ onOpenConfirm }) => {
       title="이번 라운드 등수"
       icon={<EmojiEventsIcon fontSize="small" />}
     >
+      {/* 안내 텍스트 */}
+      <Typography
+        variant="body2"
+        color="text.secondary"
+        sx={{ mb: 1.2, fontSize: '0.85rem' }}
+      >
+        순위를 바꾸려면 행을 길게 눌러 위/아래로 드래그하세요.
+      </Typography>
+
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
@@ -122,7 +224,6 @@ export const RoundOrderSection: React.FC<Props> = ({ onOpenConfirm }) => {
             {currentRanking.map((pid, idx) => {
               const player = playerMap[pid];
               if (!player) return null;
-
               return (
                 <SortableRow
                   key={pid}
