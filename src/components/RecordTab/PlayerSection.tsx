@@ -45,13 +45,21 @@ export const PlayerSection: React.FC<PlayerSectionProps> = ({
   // 🔹 "플레이어 추가" 확인 다이얼로그 상태
   const [isAddConfirmOpen, setIsAddConfirmOpen] = useState(false);
 
+  const NAME_REGEX = /^[가-힣]{1,5}\d{2}$/;
+
   const handleOpenAddConfirm = () => {
     const trimmed = newPlayerName.trim();
+
     if (!trimmed) {
       showSnackbar('이름을 입력해주세요.', 'warning');
       return;
     }
-    // 여기서는 아직 서버 호출 안 하고, 단지 "정말 추가할래?"만 묻는다
+
+    if (!NAME_REGEX.test(trimmed)) {
+      showSnackbar('형식: 한글이름 + 2자리 연도 (예: 희재93, 인섭02)', 'error');
+      return;
+    }
+
     setIsAddConfirmOpen(true);
   };
 

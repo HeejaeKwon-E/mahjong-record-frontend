@@ -14,7 +14,11 @@ import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 
 import { useAtom } from 'jotai';
-import { currentRankingAtom, playerMapAtom } from '../../state/mahjongAtoms';
+import {
+  currentRankingAtom,
+  playerMapAtom,
+  selectedDateAtom,
+} from '../../state/mahjongAtoms';
 import { Section } from '../Section';
 
 // dnd-kit
@@ -175,6 +179,10 @@ const SortableRow: React.FC<SortableRowProps> = ({ id, index, name }) => {
 export const RoundOrderSection: React.FC<Props> = ({ onOpenConfirm }) => {
   const [currentRanking, setCurrentRanking] = useAtom(currentRankingAtom);
   const [playerMap] = useAtom(playerMapAtom);
+  const [selectedDate] = useAtom(selectedDateAtom); // 🔹 현재 선택된 날짜
+
+  const today = new Date().toISOString().slice(0, 10); // 🔹 오늘 문자열
+  const isToday = selectedDate === today;
 
   // 마우스 + 터치 센서 (모바일에서도 드래그 되게)
   const sensors = useSensors(
@@ -235,10 +243,25 @@ export const RoundOrderSection: React.FC<Props> = ({ onOpenConfirm }) => {
             })}
 
             {currentRanking.length === 0 && (
-              <ListItem sx={{ width: '100%', py: 1.4 }}>
+              <ListItem
+                sx={{
+                  width: '100%',
+                  py: 1.4,
+                  display: 'flex',
+                  justifyContent: 'center',
+                  textAlign: 'center',
+                }}
+              >
                 <ListItemText
                   primary="참가자를 선택하면 순위를 정할 수 있어요."
-                  primaryTypographyProps={{ fontSize: '0.95rem' }}
+                  slotProps={{
+                    primary: {
+                      fontSize: '0.95rem',
+                      textAlign: 'center',
+                      width: '100%',
+                    },
+                  }}
+                  sx={{ textAlign: 'center', width: '100%' }}
                 />
               </ListItem>
             )}
@@ -252,14 +275,24 @@ export const RoundOrderSection: React.FC<Props> = ({ onOpenConfirm }) => {
         justifyContent="flex-end"
         sx={{ width: '100%' }}
       >
-        <Button
-          variant="contained"
-          size="medium"
-          onClick={onOpenConfirm}
-          sx={{ px: 3, py: 1, fontSize: '0.95rem', borderRadius: 2 }}
-        >
-          이 라운드 저장
-        </Button>
+        {isToday ? (
+          <Button
+            variant="contained"
+            size="medium"
+            onClick={onOpenConfirm}
+            sx={{ px: 3, py: 1, fontSize: '0.95rem', borderRadius: 2 }}
+          >
+            이 라운드 저장
+          </Button>
+        ) : (
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ fontSize: '0.85rem' }}
+          >
+            라운드는 오늘 날짜에만 저장할 수 있어요.
+          </Typography>
+        )}
       </Box>
     </Section>
   );
