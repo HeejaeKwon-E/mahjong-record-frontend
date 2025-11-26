@@ -186,8 +186,17 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
         bgcolor: 'background.default',
       }}
     >
-      {/* 상단 AppBar */}
-      <AppBar position="fixed">
+      {/* AppBar*/}
+      <AppBar
+        position="fixed"
+        elevation={mode === 'dark' ? 0 : 1}
+        sx={{
+          bgcolor: mode === 'dark' ? 'grey.950' : 'background.paper',
+          color: 'text.primary', // ← 여기 때문에 라이트/다크 둘 다 글자 선명
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+        }}
+      >
         <Toolbar
           sx={{
             width: '100%',
@@ -201,6 +210,8 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
             variant="h5"
             noWrap
             fontSize="1.35rem"
+            fontWeight={700}
+            color="inherit" // AppBar의 color를 그대로 따라감
           >
             Mahjong Record
           </Typography>
@@ -211,10 +222,19 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
             value={selectedDate}
             onChange={(e) => handleDateChange(e.target.value)}
             sx={{
-              bgcolor: 'background.paper',
+              bgcolor:
+                mode === 'dark'
+                  ? 'rgba(255,255,255,0.06)'
+                  : 'background.default',
               borderRadius: 2,
               width: 150,
               mr: 1.2,
+              '& .MuiOutlinedInput-notchedOutline': {
+                borderColor:
+                  mode === 'dark'
+                    ? 'rgba(255,255,255,0.16)'
+                    : 'rgba(0,0,0,0.15)',
+              },
               '& .MuiInputBase-input': {
                 fontSize: '0.9rem',
                 py: 0.9,
@@ -222,15 +242,22 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
             }}
           />
 
-          <IconButton color="inherit" onClick={toggleColorMode} sx={{ p: 1 }}>
+          <IconButton
+            color="inherit"
+            onClick={toggleColorMode}
+            sx={{
+              p: 1,
+              borderRadius: 2,
+              bgcolor:
+                mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
+            }}
+          >
             {mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
           </IconButton>
         </Toolbar>
       </AppBar>
-
       {/* AppBar 만큼 여백 */}
       <Toolbar />
-
       {/* 메인 컨텐츠 */}
       <Box
         component="main"
@@ -249,41 +276,66 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
         {tab === 0 && renderRecordTab()}
         {tab === 1 && renderStatsTab()}
       </Box>
-
       {/* 하단 탭 */}
       <Box
         sx={{
           position: 'fixed',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          borderTop: 1,
-          borderColor: 'divider',
+          bottom: 12,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: '100%',
+          maxWidth: 480, // 모바일 기준 중앙에 떠 있는 느낌
+          px: 2,
+          boxSizing: 'border-box',
         }}
       >
-        <BottomNavigation
-          value={tab}
-          onChange={handleTabChange}
-          showLabels
-          sx={{ height: 64 }}
+        <Box
+          sx={{
+            borderRadius: 999,
+            bgcolor: 'background.paper',
+            boxShadow: 3,
+            border: '1px solid',
+            borderColor: 'divider',
+            overflow: 'hidden',
+          }}
         >
-          <BottomNavigationAction
-            label="기록"
-            icon={<EditNoteIcon />}
+          <BottomNavigation
+            value={tab}
+            onChange={handleTabChange}
+            showLabels
             sx={{
-              '& .MuiBottomNavigationAction-label': { fontSize: '0.8rem' },
+              height: 60,
+              bgcolor: 'transparent',
+              '& .MuiBottomNavigationAction-root': {
+                minWidth: 0,
+                py: 0.5,
+              },
+              '& .Mui-selected': {
+                color: 'primary.main',
+              },
+              '& .Mui-selected .MuiBottomNavigationAction-label': {
+                fontSize: '0.8rem',
+                fontWeight: 700,
+              },
             }}
-          />
-          <BottomNavigationAction
-            label="통계"
-            icon={<BarChartIcon />}
-            sx={{
-              '& .MuiBottomNavigationAction-label': { fontSize: '0.8rem' },
-            }}
-          />
-        </BottomNavigation>
+          >
+            <BottomNavigationAction
+              label="기록"
+              icon={<EditNoteIcon />}
+              sx={{
+                '& .MuiBottomNavigationAction-label': { fontSize: '0.78rem' },
+              }}
+            />
+            <BottomNavigationAction
+              label="통계"
+              icon={<BarChartIcon />}
+              sx={{
+                '& .MuiBottomNavigationAction-label': { fontSize: '0.78rem' },
+              }}
+            />
+          </BottomNavigation>
+        </Box>
       </Box>
-
       {/* 라운드 저장 전 확인 다이얼로그 */}
       <Dialog open={isConfirmOpen} onClose={handleCloseConfirm} fullWidth>
         <DialogTitle>이 라운드를 저장할까요?</DialogTitle>
@@ -320,7 +372,6 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
           </Button>
         </DialogActions>
       </Dialog>
-
       {/* 공통 스낵바 */}
       <Snackbar
         open={snackbar.open}

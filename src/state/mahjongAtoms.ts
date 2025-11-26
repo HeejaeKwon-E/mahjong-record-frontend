@@ -88,5 +88,6 @@ export const statsByPlayerAtom = atom<PlayerStats[]>((get) => {
         firstCount: s.firstCount,
         avgRank: s.sumRank / s.games,
       };
-    });
+    })
+    .sort((a, b) => b.firstCount - a.firstCount); // ← 여기가 추가됨!
 });
