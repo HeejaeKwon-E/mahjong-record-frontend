@@ -32,8 +32,14 @@ export const StatsSummarySection: React.FC = () => {
                       stat.avgRank?.toFixed(2) ?? '-'
                     }`
               }
-              primaryTypographyProps={{ fontSize: '1rem' }}
-              secondaryTypographyProps={{ fontSize: '0.9rem' }}
+              slotProps={{
+                primary: {
+                  fontSize: '1rem',
+                },
+                secondary: {
+                  fontSize: '0.9rem',
+                },
+              }}
             />
           </ListItem>
         ))}

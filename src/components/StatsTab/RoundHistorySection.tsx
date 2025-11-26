@@ -65,7 +65,11 @@ export const RoundHistorySection: React.FC = () => {
                     primary={
                       timeStr ? `${timeStr} · ${rankingText}` : rankingText
                     }
-                    primaryTypographyProps={{ fontSize: '0.95rem' }}
+                    slotProps={{
+                      primary: {
+                        fontSize: '0.95rem',
+                      },
+                    }}
                   />
                 </ListItem>
                 <Divider component="li" />

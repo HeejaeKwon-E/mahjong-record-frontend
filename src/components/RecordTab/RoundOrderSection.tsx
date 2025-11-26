@@ -157,9 +157,11 @@ const SortableRow: React.FC<SortableRowProps> = ({ id, index, name }) => {
       {/* 이름 텍스트 */}
       <ListItemText
         primary={name}
-        primaryTypographyProps={{
-          fontSize: '1rem',
-          fontWeight: 500,
+        slotProps={{
+          primary: {
+            fontSize: '1rem',
+            fontWeight: 500,
+          },
         }}
       />
 

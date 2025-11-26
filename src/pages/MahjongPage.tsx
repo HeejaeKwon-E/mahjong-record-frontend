@@ -153,12 +153,12 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
       showSnackbar('라운드 저장 중 오류가 발생했습니다.', 'error');
     }
   };
-  const handleTabChange = (_: React.SyntheticEvent, value: number) => {
+  const handleTabChange = async (_: React.SyntheticEvent, value: number) => {
     setTab(value);
 
     // 통계 탭으로 들어올 때마다 날짜별 데이터 새로고침
     if (value === 1) {
-      reloadDateData();
+      await reloadDateData();
     }
   };
 

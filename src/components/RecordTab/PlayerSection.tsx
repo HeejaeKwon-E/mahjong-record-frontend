@@ -178,8 +178,10 @@ export const PlayerSection: React.FC<PlayerSectionProps> = ({
           placeholder="플레이어 이름 추가"
           value={newPlayerName}
           onChange={(e) => setNewPlayerName(e.target.value)}
-          InputProps={{
-            sx: { fontSize: '0.98rem', py: 0.7 },
+          slotProps={{
+            input: {
+              sx: { fontSize: '0.98rem', py: 0.7 },
+            },
           }}
         />
         <IconButton
