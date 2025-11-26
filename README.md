@@ -1,73 +1,86 @@
-# React + TypeScript + Vite
+# Mahjong Record (Mobile Mahjong Score Frontend)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+모바일(6~6.5인치)을 타깃으로 한 **마작 라운드 기록용 웹앱 프론트엔드**입니다.  
+한 번의 마작 파티 동안 각 라운드의 **등수만 빠르게 기록**하고, 날짜별 통계와 히스토리를 볼 수 있도록 만드는 것을 목표로 합니다.
 
-Currently, two official plugins are available:
+백엔드는 Go + SQLite로 구현되어 있고, 이 레포는 **React + TypeScript + MUI 기반 프론트엔드** 코드입니다.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+---
 
-## React Compiler
+## ✨ 주요 기능
 
-The React Compiler is currently not compatible with SWC. See [this issue](https://github.com/vitejs/vite-plugin-react/issues/428) for tracking the progress.
+### 🎴 마작 라운드 기록 (Record 탭)
 
-## Expanding the ESLint configuration
+- **모바일 우선 레이아웃**
+  - 6~6.5인치 스마트폰에서 한 손으로 쓰기 편하도록 설계
+  - 전체 컴포넌트가 가로 폭을 꽉 채우도록 구성
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- **플레이어 관리**
+  - 플레이어는 칩(Chip) 형태로 표시되며 탭해서 **참가자(최대 4명)** 를 선택
+  - 플레이어 추가 시 **한글 이름 + 2자리 출생연도** 형식으로 제한
+    - 예: `희재93`, `백호93`, `인섭02`
+    - 정규식: `^[가-힣]{1,5}\d{2}$`
+  - 잘못 추가하는 것을 방지하기 위해 **추가 전 확인 다이얼로그** 표시
+  - 성공/실패 시 스낵바(Snackbar)로 피드백 표시
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- **이번 라운드 등수 정하기**
+  - 선택된 플레이어(최대 4명)에 대해 **드래그 앤 드롭으로 순위 조정**
+    - [`@dnd-kit`](https://github.com/clauderic/dnd-kit)을 사용한 세로 리스트 정렬
+    - 각 줄은 카드 형식 + 순위 뱃지(금/은/동)로 시각적으로 명확하게 구분
+  - 라운드 저장 전, 다이얼로그에서 등수/이름을 다시 한 번 확인 후 저장
+  - **항상 4명이 있어야만 라운드 저장 가능**
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+- **오늘 날짜만 기록 허용**
+  - 상단 날짜 선택이 가능하지만,  
+    **오늘이 아닌 날짜가 선택되어 있으면 “라운드 저장” 버튼이 보이지 않음**
+  - 백엔드에서도 안전하게 **오늘 날짜만 허용**하도록 한 번 더 검증
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### 📊 통계 및 히스토리 (Stats 탭)
+
+- **날짜별 통계**
+  - 선택한 날짜 기준으로 그날 라운드에 등장한 플레이어들의 통계 표시
+  - 예: 게임 수, 1위 횟수, 평균 순위 등
+
+- **라운드 히스토리**
+  - 선택한 날짜의 모든 라운드를 시간순으로 표시
+  - 각 라운드마다:
+    - 기록된 시각 (24시간 표기)
+    - 1~4위 플레이어 이름 목록
+
+### 🌓 다크 모드 지원
+
+- 전역 테마에 MUI `ThemeProvider`를 사용
+  - 라이트 / 다크 모드 토글 가능
+  - 배경/카드/텍스트 색감이 모드에 따라 자연스럽게 전환되도록 구성
+
+---
+
+## 🧱 기술 스택
+
+- **Framework**: React
+- **언어**: TypeScript
+- **UI 라이브러리**: Material UI (MUI)
+- **상태 관리**: Jotai
+- **Drag & Drop**: `@dnd-kit`
+- **빌드**: Vite
+
+---
+
+## 🚀 로컬 개발
+
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+빌드:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run build
 ```
+
+---
+
+## License
+
+Apache License (또는 원하는 내용으로 변경)
