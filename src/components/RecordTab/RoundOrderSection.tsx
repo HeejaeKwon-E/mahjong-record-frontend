@@ -25,7 +25,8 @@ import { Section } from '../Section';
 import {
   DndContext,
   type DragEndEvent,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   closestCenter,
   useSensor,
   useSensors,
@@ -112,15 +113,14 @@ const SortableRow: React.FC<SortableRowProps> = ({ id, index, name }) => {
         borderColor: isDragging ? 'primary.main' : 'divider',
         bgcolor: isDragging ? 'action.selected' : 'background.paper',
         boxShadow: isDragging ? 3 : 0,
-        cursor: 'grab',
         display: 'flex',
         alignItems: 'center',
         gap: 1.4,
-        '&:active': {
-          cursor: 'grabbing',
-        },
-        transition:
-          'background-color 0.2s ease, box-shadow 0.15s ease, border-color 0.15s ease',
+
+        // 🔹 텍스트 선택 / iOS 롱프레스 메뉴 방지
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+        WebkitTouchCallout: 'none',
       }}
       // 🔹 이제 행 전체가 드래그 영역
       {...attributes}
@@ -165,12 +165,18 @@ const SortableRow: React.FC<SortableRowProps> = ({ id, index, name }) => {
         }}
       />
 
-      {/* 드래그 가능 힌트용 아이콘 (실제 드래그 리스너는 없음) */}
+      {/* 드래그 핸들: 시각적으로 “여길 끌어라” 느낌 */}
       <IconButton
         edge="end"
         size="small"
-        sx={{ ml: 1, cursor: 'inherit' }} // 행 전체가 grab 이니까 얘도 맞춰줌
-        disableRipple
+        sx={{
+          ml: 1,
+          cursor: 'grab',
+          '&:active': { cursor: 'grabbing' },
+        }}
+        // 여기에도 listeners를 그대로 붙여서
+        // 아이콘을 잡았을 때도 곧바로 같은 드래그가 시작
+        {...listeners}
       >
         <DragIndicatorIcon fontSize="small" />
       </IconButton>
@@ -188,9 +194,13 @@ export const RoundOrderSection: React.FC<Props> = ({ onOpenConfirm }) => {
 
   // 마우스 + 터치 센서 (모바일에서도 드래그 되게)
   const sensors = useSensors(
-    useSensor(PointerSensor, {
+    // 데스크탑 마우스: 바로 드래그
+    useSensor(MouseSensor),
+    // 모바일 터치: 살짝 long-press 후 드래그 (텍스트 선택 대신 드래그가 우선)
+    useSensor(TouchSensor, {
       activationConstraint: {
-        distance: 6, // 6px 이상 움직였을 때만 드래그 시작 (실수 터치 방지)
+        delay: 180, // 0.18초 정도만 꾹 누르면 시작
+        tolerance: 5,
       },
     }),
   );
