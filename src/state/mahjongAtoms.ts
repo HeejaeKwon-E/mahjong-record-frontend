@@ -61,18 +61,28 @@ export const statsByPlayerAtom = atom<PlayerStats[]>((get) => {
 
   const statsMap = new Map<
     number,
-    { games: number; firstCount: number; sumRank: number }
+    { games: number; firstCount: number; sumRank: number; scoreSum: number }
   >();
-
   const filtered = rounds.filter((r) => r.date === selectedDate);
 
   filtered.forEach((round) => {
     round.ranking.forEach((pid, index) => {
       const rank = index + 1;
-      const cur = statsMap.get(pid) ?? { games: 0, firstCount: 0, sumRank: 0 };
+
+      const score = rank === 1 ? 0 : rank === 2 ? 1 : rank === 3 ? 3 : 6;
+
+      const cur = statsMap.get(pid) ?? {
+        games: 0,
+        firstCount: 0,
+        sumRank: 0,
+        scoreSum: 0,
+      };
+
       cur.games += 1;
       cur.sumRank += rank;
       if (rank === 1) cur.firstCount += 1;
+      cur.scoreSum += score;
+
       statsMap.set(pid, cur);
     });
   });
@@ -87,6 +97,7 @@ export const statsByPlayerAtom = atom<PlayerStats[]>((get) => {
         games: s.games,
         firstCount: s.firstCount,
         avgRank: s.sumRank / s.games,
+        scoreSum: s.scoreSum,
       };
     })
     .sort((a, b) => b.firstCount - a.firstCount); // ← 여기가 추가됨!

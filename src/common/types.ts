@@ -16,4 +16,5 @@ export type PlayerStats = {
   games: number;
   firstCount: number;
   avgRank: number | null;
+  scoreSum: number; // ← 추가
 };

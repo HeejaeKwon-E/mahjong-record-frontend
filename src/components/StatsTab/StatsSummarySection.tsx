@@ -1,10 +1,5 @@
 import React from 'react';
-import {
-  //Box,
-  List,
-  ListItem,
-  ListItemText,
-} from '@mui/material';
+import { List, ListItem, ListItemText } from '@mui/material';
 import InsightsIcon from '@mui/icons-material/Insights';
 import { useAtom } from 'jotai';
 
@@ -30,7 +25,7 @@ export const StatsSummarySection: React.FC = () => {
                   ? '플레이 기록 없음'
                   : `플레이 ${stat.games}회 · 1위 ${stat.firstCount}회 · 평균 등수 ${
                       stat.avgRank?.toFixed(2) ?? '-'
-                    }`
+                    } · 점수 합계 ${stat.scoreSum}점`
               }
               slotProps={{
                 primary: {
