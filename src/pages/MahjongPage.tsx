@@ -1,5 +1,5 @@
 // src/mahjong/MahjongPage.tsx
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   AppBar,
   Toolbar,
@@ -7,8 +7,6 @@ import {
   Box,
   TextField,
   IconButton,
-  BottomNavigation,
-  BottomNavigationAction,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -17,12 +15,18 @@ import {
   Button,
   Snackbar,
   Alert,
-  //ToolbarProps,
+  Slide,
+  Drawer,
+  ListItemButton,
+  List,
+  ListItemIcon,
+  ListItemText,
 } from '@mui/material';
 import EditNoteIcon from '@mui/icons-material/EditNote';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
+import MenuIcon from '@mui/icons-material/Menu'; // 🔹 기존 ViewSidebarIcon 대신
 
 import { useAtom } from 'jotai';
 
@@ -40,6 +44,7 @@ import { RoundOrderSection } from '../components/RecordTab/RoundOrderSection';
 import { StatsSummarySection } from '../components/StatsTab/StatsSummarySection';
 import { RoundHistorySection } from '../components/StatsTab/RoundHistorySection';
 import { useServerSync } from '../hooks/useServerSync';
+import type { TransitionProps } from '@mui/material/transitions';
 
 type SnackbarSeverity = 'success' | 'error' | 'info' | 'warning';
 
@@ -53,6 +58,39 @@ interface MahjongPageProps {
   mode: 'light' | 'dark';
   toggleColorMode: () => void;
 }
+
+/** 스크롤 방향 감지용 커스텀 훅 */
+function useScrollDirection() {
+  const [direction, setDirection] = useState<'up' | 'down'>('up');
+
+  useEffect(() => {
+    let lastY = window.scrollY;
+
+    const onScroll = () => {
+      const currentY = window.scrollY;
+      if (Math.abs(currentY - lastY) < 4) return; // 작은 움직임 무시
+      if (currentY > lastY) {
+        setDirection('down');
+      } else {
+        setDirection('up');
+      }
+      lastY = currentY;
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  return direction;
+}
+
+/** Slide 트랜지션용 래퍼 */
+const SlideDown = React.forwardRef(function SlideDown(
+  props: TransitionProps & { children: React.ReactElement },
+  ref: React.Ref<unknown>,
+) {
+  return <Slide direction="down" ref={ref} {...props} />;
+});
 
 const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
   const { reloadDateData } = useServerSync();
@@ -71,7 +109,12 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
     message: '',
     severity: 'success',
   });
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  const scrollDirection = useScrollDirection();
+  const isAtTop = typeof window !== 'undefined' ? window.scrollY < 10 : true;
+  const showAppBar = scrollDirection === 'up' || isAtTop;
+  const todayStr = new Date().toISOString().slice(0, 10);
   // 🔹 공통 스낵바 helper
   const showSnackbar = useCallback(
     (message: string, severity: SnackbarSeverity) => {
@@ -102,6 +145,8 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
     //    선택/순위는 일단 초기화
     setSelectedPlayerIds([]);
     setCurrentRanking([]);
+    // 새 날짜에 맞는 데이터 재로딩
+    reloadDateData();
   };
 
   // 🔹 라운드 저장 전 확인 다이얼로그 열기
@@ -125,7 +170,11 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
       showSnackbar('참가자가 4명이 아닙니다. 다시 확인해주세요.', 'error');
       return;
     }
-
+    if (selectedDate !== todayStr) {
+      setIsConfirmOpen(false);
+      showSnackbar('라운드는 오늘 날짜에만 저장할 수 있어요.', 'warning');
+      return;
+    }
     try {
       const res = await fetch('/api/rounds', {
         method: 'POST',
@@ -153,15 +202,15 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
       showSnackbar('라운드 저장 중 오류가 발생했습니다.', 'error');
     }
   };
-  const handleTabChange = async (_: React.SyntheticEvent, value: number) => {
-    setTab(value);
+  // MahjongPage 컴포넌트 내부에 추가
+  const switchTab = (nextTab: number) => {
+    setTab(nextTab);
 
-    // 통계 탭으로 들어올 때마다 날짜별 데이터 새로고침
-    if (value === 1) {
-      await reloadDateData();
+    // 통계 탭(1)으로 들어갈 때는 데이터 새로고침
+    if (nextTab === 1) {
+      reloadDateData();
     }
   };
-
   // 🔹 Record 탭 렌더
   const renderRecordTab = () => (
     <>
@@ -186,76 +235,57 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
         bgcolor: 'background.default',
       }}
     >
-      {/* AppBar*/}
-      <AppBar
-        position="fixed"
-        elevation={mode === 'dark' ? 0 : 1}
-        sx={{
-          bgcolor: mode === 'dark' ? 'grey.950' : 'background.paper',
-          color: 'text.primary', // ← 여기 때문에 라이트/다크 둘 다 글자 선명
-          borderBottom: '1px solid',
-          borderColor: 'divider',
-        }}
-      >
-        <Toolbar
-          sx={{
-            width: '100%',
-            boxSizing: 'border-box',
-            px: 2,
-            py: 1,
-          }}
-        >
-          <Typography
-            sx={{ flexGrow: 1 }}
-            variant="h5"
-            noWrap
-            fontSize="1.35rem"
-            fontWeight={700}
-            color="inherit" // AppBar의 color를 그대로 따라감
-          >
-            Mahjong Record
-          </Typography>
-
-          <TextField
-            type="date"
-            size="small"
-            value={selectedDate}
-            onChange={(e) => handleDateChange(e.target.value)}
+      {/* 상단 AppBar: 스크롤에 따라 숨김/표시 */}
+      <SlideDown in={showAppBar}>
+        <AppBar position="fixed">
+          <Toolbar
             sx={{
-              bgcolor:
-                mode === 'dark'
-                  ? 'rgba(255,255,255,0.06)'
-                  : 'background.default',
-              borderRadius: 2,
-              width: 150,
-              mr: 1.2,
-              '& .MuiOutlinedInput-notchedOutline': {
-                borderColor:
-                  mode === 'dark'
-                    ? 'rgba(255,255,255,0.16)'
-                    : 'rgba(0,0,0,0.15)',
-              },
-              '& .MuiInputBase-input': {
-                fontSize: '0.9rem',
-                py: 0.9,
-              },
-            }}
-          />
-
-          <IconButton
-            color="inherit"
-            onClick={toggleColorMode}
-            sx={{
-              p: 1,
-              borderRadius: 2,
-              bgcolor:
-                mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
+              width: '100%',
+              boxSizing: 'border-box',
+              px: 2,
+              py: 1,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
             }}
           >
-            {mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
-          </IconButton>
-        </Toolbar>
-      </AppBar>
+            {/* 🔹 왼쪽: 날짜 */}
+            <Box
+              sx={{
+                flexGrow: 1,
+                display: 'flex',
+              }}
+            >
+              <TextField
+                type="date"
+                size="small"
+                value={selectedDate}
+                onChange={(e) => handleDateChange(e.target.value)}
+                sx={{
+                  maxWidth: 170, // 너무 커지지 않게 제한
+                  bgcolor: 'background.paper',
+                  borderRadius: 2,
+                  '& .MuiInputBase-input': {
+                    fontSize: '0.85rem',
+                    py: 0.7,
+                  },
+                }}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Box>
+
+            {/* 🔹 오른쪽: 메뉴 버튼 (고정) */}
+            <IconButton
+              color="inherit"
+              onClick={() => setSidebarOpen(true)}
+              sx={{ flexShrink: 0 }}
+            >
+              <MenuIcon />
+            </IconButton>
+          </Toolbar>
+        </AppBar>
+      </SlideDown>
+
       {/* AppBar 만큼 여백 */}
       <Toolbar />
       {/* 메인 컨텐츠 */}
@@ -266,7 +296,7 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
           boxSizing: 'border-box',
           px: 2.2,
           pt: 2.2,
-          pb: 11,
+          pb: 4,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'stretch',
@@ -276,66 +306,7 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
         {tab === 0 && renderRecordTab()}
         {tab === 1 && renderStatsTab()}
       </Box>
-      {/* 하단 탭 */}
-      <Box
-        sx={{
-          position: 'fixed',
-          bottom: 12,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          width: '100%',
-          maxWidth: 480, // 모바일 기준 중앙에 떠 있는 느낌
-          px: 2,
-          boxSizing: 'border-box',
-        }}
-      >
-        <Box
-          sx={{
-            borderRadius: 999,
-            bgcolor: 'background.paper',
-            boxShadow: 3,
-            border: '1px solid',
-            borderColor: 'divider',
-            overflow: 'hidden',
-          }}
-        >
-          <BottomNavigation
-            value={tab}
-            onChange={handleTabChange}
-            showLabels
-            sx={{
-              height: 60,
-              bgcolor: 'transparent',
-              '& .MuiBottomNavigationAction-root': {
-                minWidth: 0,
-                py: 0.5,
-              },
-              '& .Mui-selected': {
-                color: 'primary.main',
-              },
-              '& .Mui-selected .MuiBottomNavigationAction-label': {
-                fontSize: '0.8rem',
-                fontWeight: 700,
-              },
-            }}
-          >
-            <BottomNavigationAction
-              label="기록"
-              icon={<EditNoteIcon />}
-              sx={{
-                '& .MuiBottomNavigationAction-label': { fontSize: '0.78rem' },
-              }}
-            />
-            <BottomNavigationAction
-              label="통계"
-              icon={<BarChartIcon />}
-              sx={{
-                '& .MuiBottomNavigationAction-label': { fontSize: '0.78rem' },
-              }}
-            />
-          </BottomNavigation>
-        </Box>
-      </Box>
+
       {/* 라운드 저장 전 확인 다이얼로그 */}
       <Dialog open={isConfirmOpen} onClose={handleCloseConfirm} fullWidth>
         <DialogTitle>이 라운드를 저장할까요?</DialogTitle>
@@ -388,6 +359,67 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
           {snackbar.message}
         </Alert>
       </Snackbar>
+      {/* 오른쪽 사이드바: 메뉴 + (모바일일 때) 날짜/다크모드 */}
+      <Drawer
+        anchor="right"
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+      >
+        <Box
+          sx={{
+            width: 240,
+            pt: 2,
+            pb: 2,
+          }}
+        >
+          {/* 🔹 헤더: "메뉴" + 다크모드 버튼 한 줄 정렬 */}
+          <Box
+            sx={{
+              px: 2,
+              pb: 1.5,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+              메뉴
+            </Typography>
+
+            <IconButton size="small" onClick={toggleColorMode}>
+              {mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
+            </IconButton>
+          </Box>
+
+          <List>
+            <ListItemButton
+              selected={tab === 0}
+              onClick={() => {
+                switchTab(0);
+                setSidebarOpen(false);
+              }}
+            >
+              <ListItemIcon>
+                <EditNoteIcon />
+              </ListItemIcon>
+              <ListItemText primary="기록" />
+            </ListItemButton>
+
+            <ListItemButton
+              selected={tab === 1}
+              onClick={() => {
+                switchTab(1);
+                setSidebarOpen(false);
+              }}
+            >
+              <ListItemIcon>
+                <BarChartIcon />
+              </ListItemIcon>
+              <ListItemText primary="통계" />
+            </ListItemButton>
+          </List>
+        </Box>
+      </Drawer>
     </Box>
   );
 };
