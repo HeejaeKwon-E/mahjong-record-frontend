@@ -10,7 +10,7 @@ type SectionProps = {
 
 export const Section: React.FC<SectionProps> = ({ title, icon, children }) => {
   return (
-    <Box mb={3} sx={{ width: '100%' }}>
+    <Box mb={0.25} sx={{ width: '100%' }}>
       <Paper
         variant="outlined"
         sx={{
@@ -25,7 +25,7 @@ export const Section: React.FC<SectionProps> = ({ title, icon, children }) => {
           sx={{
             display: 'flex',
             alignItems: 'center',
-            mb: 1.6,
+            mb: 1.0,
           }}
         >
           <Box

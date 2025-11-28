@@ -41,78 +41,109 @@ export const StatsSummarySection: React.FC = () => {
       {sorted.length === 0 ? (
         <Typography color="text.secondary">플레이 기록이 없습니다.</Typography>
       ) : (
-        <TableContainer
-          component={Paper}
-          elevation={0}
-          sx={{ bgcolor: 'background.paper' }}
-        >
-          <Table size="small" sx={{ minWidth: 300 }}>
-            <TableHead>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 700 }}>플레이어</TableCell>
-                <TableCell align="center" sx={{ fontWeight: 700 }}>
-                  게임
-                </TableCell>
-                <TableCell align="center" sx={{ fontWeight: 700 }}>
-                  1위
-                </TableCell>
-                <TableCell align="center" sx={{ fontWeight: 700 }}>
-                  평균
-                </TableCell>
-                <TableCell align="center" sx={{ fontWeight: 700 }}>
-                  점수
-                </TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {sorted.map((stat) => (
-                <TableRow
-                  key={stat.player.id}
-                  hover
-                  sx={{
-                    '&:hover': { bgcolor: 'action.hover' },
-                  }}
-                >
+        <>
+          <TableContainer
+            component={Paper}
+            elevation={0}
+            sx={{
+              bgcolor: 'background.paper',
+              maxWidth: '100%',
+              overflowX: 'auto',
+            }}
+          >
+            <Table
+              size="small"
+              sx={{
+                tableLayout: 'auto', // 🔹 열 기준 레이아웃
+              }}
+            >
+              <TableHead>
+                <TableRow>
                   <TableCell
-                    component="th"
-                    scope="row"
-                    sx={{
-                      fontWeight: 600,
-                      maxWidth: 100,
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                    }}
+                    align="center"
+                    sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}
                   >
-                    {stat.player.name}
+                    플레이어
                   </TableCell>
 
-                  <TableCell align="center">{stat.games}</TableCell>
-                  <TableCell align="center">{stat.firstCount}</TableCell>
-
-                  <TableCell align="center">
-                    {stat.avgRank?.toFixed(2) ?? '-'}
+                  {/* 🔥 점수 칼럼을 두 번째로 이동 */}
+                  <TableCell
+                    align="center"
+                    sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}
+                  >
+                    점수
                   </TableCell>
 
                   <TableCell
                     align="center"
-                    sx={{
-                      fontWeight: 700,
-                      color:
-                        stat.scoreSum === 0
-                          ? 'success.main'
-                          : stat.scoreSum <= 3
-                            ? 'warning.main'
-                            : 'error.main',
-                    }}
+                    sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}
                   >
-                    {stat.scoreSum}
+                    게임
+                  </TableCell>
+                  <TableCell
+                    align="center"
+                    sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}
+                  >
+                    1위
+                  </TableCell>
+                  <TableCell
+                    align="center"
+                    sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}
+                  >
+                    평균
                   </TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+              </TableHead>
+
+              <TableBody>
+                {sorted.map((stat) => (
+                  <TableRow
+                    key={stat.player.id}
+                    hover
+                    sx={{ '&:hover': { bgcolor: 'action.hover' } }}
+                  >
+                    {/* 플레이어 */}
+                    <TableCell
+                      component="th"
+                      scope="row"
+                      align="center"
+                      sx={{ whiteSpace: 'nowrap' }}
+                    >
+                      {stat.player.name}
+                    </TableCell>
+
+                    {/* 🔥 점수 — 강조 색상도 유지 */}
+                    <TableCell
+                      align="center"
+                      sx={{
+                        fontWeight: 700,
+                        color:
+                          stat.scoreSum === 0
+                            ? 'success.main'
+                            : stat.scoreSum <= 3
+                              ? 'warning.main'
+                              : 'error.main',
+                      }}
+                    >
+                      {stat.scoreSum}
+                    </TableCell>
+
+                    {/* 게임 */}
+                    <TableCell align="center">{stat.games}</TableCell>
+
+                    {/* 1위 */}
+                    <TableCell align="center">{stat.firstCount}</TableCell>
+
+                    {/* 평균 */}
+                    <TableCell align="center">
+                      {stat.avgRank?.toFixed(2) ?? '-'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </>
       )}
     </Section>
   );

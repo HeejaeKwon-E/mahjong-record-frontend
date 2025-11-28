@@ -202,15 +202,6 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
       showSnackbar('라운드 저장 중 오류가 발생했습니다.', 'error');
     }
   };
-  // MahjongPage 컴포넌트 내부에 추가
-  const switchTab = (nextTab: number) => {
-    setTab(nextTab);
-
-    // 통계 탭(1)으로 들어갈 때는 데이터 새로고침
-    if (nextTab === 1) {
-      reloadDateData();
-    }
-  };
   // 🔹 Record 탭 렌더
   const renderRecordTab = () => (
     <>
@@ -223,7 +214,7 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
   const renderStatsTab = () => (
     <>
       <StatsSummarySection />
-      <RoundHistorySection />
+      <RoundHistorySection showSnackbar={showSnackbar} />
     </>
   );
 
@@ -300,7 +291,7 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'stretch',
-          gap: 2.5,
+          gap: 2,
         }}
       >
         {tab === 0 && renderRecordTab()}
@@ -395,7 +386,7 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
             <ListItemButton
               selected={tab === 0}
               onClick={() => {
-                switchTab(0);
+                setTab(0);
                 setSidebarOpen(false);
               }}
             >
@@ -408,7 +399,7 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
             <ListItemButton
               selected={tab === 1}
               onClick={() => {
-                switchTab(1);
+                setTab(1);
                 setSidebarOpen(false);
               }}
             >
