@@ -19,6 +19,10 @@ export function useServerSync() {
 
   // 선택된 날짜 기준 라운드 + 기본 선택 플레이어 설정
   const reloadDateData = useCallback(async () => {
+    // 🔹 날짜가 아직 세팅 안 되어 있으면 아무 것도 안 함
+    if (!selectedDate || selectedDate.trim().length === 0) {
+      return;
+    }
     try {
       const [roundsRes, playersByDateRes] = await Promise.all([
         fetch(`/api/rounds/by-date?date=${encodeURIComponent(selectedDate)}`),

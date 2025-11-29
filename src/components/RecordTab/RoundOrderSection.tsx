@@ -18,6 +18,7 @@ import {
   currentRankingAtom,
   playerMapAtom,
   selectedDateAtom,
+  serverTodayAtom,
 } from '../../state/mahjongAtoms';
 import { Section } from '../Section';
 
@@ -188,9 +189,8 @@ export const RoundOrderSection: React.FC<Props> = ({ onOpenConfirm }) => {
   const [currentRanking, setCurrentRanking] = useAtom(currentRankingAtom);
   const [playerMap] = useAtom(playerMapAtom);
   const [selectedDate] = useAtom(selectedDateAtom); // 🔹 현재 선택된 날짜
-
-  const today = new Date().toISOString().slice(0, 10); // 🔹 오늘 문자열
-  const isToday = selectedDate === today;
+  const [serverToday] = useAtom(serverTodayAtom);
+  const isToday = selectedDate === serverToday;
 
   // 마우스 + 터치 센서 (모바일에서도 드래그 되게)
   const sensors = useSensors(

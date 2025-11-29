@@ -36,6 +36,7 @@ import {
   selectedPlayerIdsAtom,
   currentRankingAtom,
   playerMapAtom,
+  serverTodayAtom,
 } from '../state/mahjongAtoms';
 
 // 섹션/탭 컴포넌트들
@@ -98,6 +99,7 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
   const [playerMap] = useAtom(playerMapAtom);
   const [currentRanking] = useAtom(currentRankingAtom);
   const [selectedDate, setSelectedDate] = useAtom(selectedDateAtom);
+  const [serverToday, setServerToday] = useAtom(serverTodayAtom);
   const [, setCurrentRanking] = useAtom(currentRankingAtom);
   const [, setSelectedPlayerIds] = useAtom(selectedPlayerIdsAtom);
 
@@ -114,7 +116,33 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
   const scrollDirection = useScrollDirection();
   const isAtTop = typeof window !== 'undefined' ? window.scrollY < 10 : true;
   const showAppBar = scrollDirection === 'up' || isAtTop;
-  const todayStr = new Date().toISOString().slice(0, 10);
+  // 서버에서 오늘 날짜 한 번 받아오기
+  useEffect(() => {
+    const fetchServerDate = async () => {
+      try {
+        const res = await fetch('/api/server-date');
+        if (!res.ok) throw new Error('failed to fetch server date');
+        const data = await res.json();
+
+        const today = (data?.today as string) ?? '';
+        if (!today) return;
+
+        // 서버 today 저장
+        setServerToday(today);
+
+        // selectedDate가 아직 비어 있으면 서버 today로 초기화
+        setSelectedDate((prev) =>
+          prev && prev.trim().length > 0 ? prev : today,
+        );
+      } catch (e) {
+        console.error('failed to load server date', e);
+      }
+    };
+
+    if (!serverToday) {
+      fetchServerDate();
+    }
+  }, [serverToday, setServerToday, setSelectedDate]);
   // 🔹 공통 스낵바 helper
   const showSnackbar = useCallback(
     (message: string, severity: SnackbarSeverity) => {
@@ -134,9 +162,7 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
   // 🔹 날짜 변경 시: 그 날짜의 파티 멤버 기준으로 selected/순위 셋업
   const handleDateChange = (value: string) => {
     const newDate =
-      value && value.trim().length > 0
-        ? value
-        : new Date().toISOString().slice(0, 10);
+      value && value.trim().length > 0 ? value : serverToday || '';
 
     // 1) 날짜만 먼저 변경
     setSelectedDate(newDate);
@@ -170,7 +196,7 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
       showSnackbar('참가자가 4명이 아닙니다. 다시 확인해주세요.', 'error');
       return;
     }
-    if (selectedDate !== todayStr) {
+    if (selectedDate !== serverToday) {
       setIsConfirmOpen(false);
       showSnackbar('라운드는 오늘 날짜에만 저장할 수 있어요.', 'warning');
       return;
@@ -406,7 +432,7 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
               <ListItemIcon>
                 <BarChartIcon />
               </ListItemIcon>
-              <ListItemText primary="통계" />
+              <ListItemText primary="일별 통계" />
             </ListItemButton>
           </List>
         </Box>

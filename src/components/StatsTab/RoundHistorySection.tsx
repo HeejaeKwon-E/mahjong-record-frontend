@@ -25,6 +25,7 @@ import {
   roundsAtom,
   selectedDateAtom,
   playerMapAtom,
+  serverTodayAtom,
 } from '../../state/mahjongAtoms';
 import { Section } from '../Section';
 import type { Round } from '../../common/types';
@@ -44,10 +45,11 @@ export const RoundHistorySection: React.FC<RoundHistorySectionProps> = ({
   const [rounds] = useAtom(roundsAtom);
   const [selectedDate] = useAtom(selectedDateAtom);
   const [playerMap] = useAtom(playerMapAtom);
-
+  const [serverToday] = useAtom(serverTodayAtom);
   const [deleteTarget, setDeleteTarget] = useState<Round | null>(null);
 
   const filtered = rounds.filter((r) => r.date === selectedDate);
+  const isToday = selectedDate === serverToday;
 
   const formatTime = (round: Round) => {
     const ts = round.created_at;
@@ -92,10 +94,7 @@ export const RoundHistorySection: React.FC<RoundHistorySectionProps> = ({
   };
 
   return (
-    <Section
-      title={`라운드 기록 (${selectedDate})`}
-      icon={<HistoryIcon fontSize="small" />}
-    >
+    <Section title={`라운드 기록`} icon={<HistoryIcon fontSize="small" />}>
       {filtered.length === 0 ? (
         <Typography variant="body2" color="text.secondary">
           이 날짜에는 기록된 라운드가 없습니다.
@@ -108,7 +107,7 @@ export const RoundHistorySection: React.FC<RoundHistorySectionProps> = ({
             sx={{
               bgcolor: 'background.paper',
               maxWidth: '100%',
-              overflowX: 'auto',
+              overflowX: 'scroll',
             }}
           >
             <Table
@@ -150,16 +149,18 @@ export const RoundHistorySection: React.FC<RoundHistorySectionProps> = ({
                     4위
                   </TableCell>
                   {/* 🔹 삭제 컬럼 */}
-                  <TableCell
-                    align="center"
-                    sx={{
-                      fontWeight: 700,
-                      whiteSpace: 'nowrap',
-                      //width: 56,
-                    }}
-                  >
-                    {/*삭제*/}
-                  </TableCell>
+                  {isToday && (
+                    <TableCell
+                      align="center"
+                      sx={{
+                        fontWeight: 700,
+                        whiteSpace: 'nowrap',
+                        //width: 56,
+                      }}
+                    >
+                      {/*삭제*/}
+                    </TableCell>
+                  )}
                 </TableRow>
               </TableHead>
 
@@ -196,14 +197,16 @@ export const RoundHistorySection: React.FC<RoundHistorySectionProps> = ({
                       ))}
 
                       {/* 🔹 삭제 버튼 */}
-                      <TableCell align="center">
-                        <IconButton
-                          size="small"
-                          onClick={() => handleRequestDelete(round)}
-                        >
-                          <DeleteOutlineIcon fontSize="small" />
-                        </IconButton>
-                      </TableCell>
+                      {isToday && (
+                        <TableCell align="center">
+                          <IconButton
+                            size="small"
+                            onClick={() => handleRequestDelete(round)}
+                          >
+                            <DeleteOutlineIcon fontSize="small" />
+                          </IconButton>
+                        </TableCell>
+                      )}
                     </TableRow>
                   );
                 })}

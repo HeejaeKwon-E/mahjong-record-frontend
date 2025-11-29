@@ -34,8 +34,7 @@ export const StatsSummarySection: React.FC = () => {
         color="text.secondary"
         sx={{ mb: 1.5, fontSize: '0.8rem' }}
       >
-        1위 0점 · 2위 1점 · 3위 3점 · 4위 6점 — 점수 합계가 낮을수록 좋은
-        성적입니다.
+        1위 0점 · 2위 1점 · 3위 3점 · 4위 6점
       </Typography>
 
       {sorted.length === 0 ? (
@@ -48,7 +47,7 @@ export const StatsSummarySection: React.FC = () => {
             sx={{
               bgcolor: 'background.paper',
               maxWidth: '100%',
-              overflowX: 'auto',
+              overflowX: 'scroll',
             }}
           >
             <Table

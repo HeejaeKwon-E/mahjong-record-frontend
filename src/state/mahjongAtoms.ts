@@ -2,14 +2,17 @@
 import { atom } from 'jotai';
 import type { Player, Round, PlayerStats } from '../common/types';
 
-const todayStr = () => new Date().toISOString().slice(0, 10);
 
 export const playersAtom = atom<Player[]>([]);
 
 // 그 날짜에 기록이 있는 플레이어 목록 (API: /players/by-date)
 export const datePlayersAtom = atom<Player[]>([]);
 
-export const selectedDateAtom = atom<string>(todayStr());
+// 서버가 알려준 '오늘' (YYYY-MM-DD)
+export const serverTodayAtom = atom<string | null>(null);
+
+// 사용자가 보고 있는 날짜
+export const selectedDateAtom = atom<string>('');  // ← 더 이상 클라에서 today 계산 안함
 
 // 이번 라운드에 실제로 선택된 플레이어 (0~4명)
 export const selectedPlayerIdsAtom = atom<number[]>([]);
