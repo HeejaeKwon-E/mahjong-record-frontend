@@ -15,6 +15,7 @@ import { useAtom } from 'jotai';
 
 import { statsByPlayerAtom, selectedDateAtom } from '../../state/mahjongAtoms';
 import { Section } from '../Section';
+import { ScrollableTableContainer } from '../ScrollableTableContainer';
 
 export const StatsSummarySection: React.FC = () => {
   const [statsByPlayer] = useAtom(statsByPlayerAtom);
@@ -41,19 +42,16 @@ export const StatsSummarySection: React.FC = () => {
         <Typography color="text.secondary">플레이 기록이 없습니다.</Typography>
       ) : (
         <>
-          <TableContainer
-            component={Paper}
-            elevation={0}
-            sx={{
-              bgcolor: 'background.paper',
-              maxWidth: '100%',
-              overflowX: 'scroll',
-            }}
-          >
+          <ScrollableTableContainer>
             <Table
               size="small"
               sx={{
-                tableLayout: 'auto', // 🔹 열 기준 레이아웃
+                tableLayout: 'auto',
+                '& td, & th': {
+                  px: 0.8, // 기본 16px → 6px 정도로 감소
+                  py: 0.9, // 기본 6px → 약간 넉넉하게
+                  whiteSpace: 'nowrap',
+                },
               }}
             >
               <TableHead>
@@ -141,7 +139,7 @@ export const StatsSummarySection: React.FC = () => {
                 ))}
               </TableBody>
             </Table>
-          </TableContainer>
+          </ScrollableTableContainer>
         </>
       )}
     </Section>

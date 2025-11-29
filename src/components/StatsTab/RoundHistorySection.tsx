@@ -4,10 +4,8 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
   TableRow,
-  Paper,
   Typography,
   IconButton,
   Dialog,
@@ -30,6 +28,7 @@ import {
 import { Section } from '../Section';
 import type { Round } from '../../common/types';
 import { useServerSync } from '../../hooks/useServerSync';
+import { ScrollableTableContainer } from '../ScrollableTableContainer';
 
 type RoundHistorySectionProps = {
   showSnackbar: (
@@ -101,19 +100,16 @@ export const RoundHistorySection: React.FC<RoundHistorySectionProps> = ({
         </Typography>
       ) : (
         <>
-          <TableContainer
-            component={Paper}
-            elevation={0}
-            sx={{
-              bgcolor: 'background.paper',
-              maxWidth: '100%',
-              overflowX: 'scroll',
-            }}
-          >
+          <ScrollableTableContainer>
             <Table
               size="small"
               sx={{
                 tableLayout: 'auto',
+                '& td, & th': {
+                  px: 0.8, // 기본 16px → 6px 정도로 감소
+                  py: 0.9, // 기본 6px → 약간 넉넉하게
+                  whiteSpace: 'nowrap',
+                },
               }}
             >
               <TableHead>
@@ -212,7 +208,7 @@ export const RoundHistorySection: React.FC<RoundHistorySectionProps> = ({
                 })}
               </TableBody>
             </Table>
-          </TableContainer>
+          </ScrollableTableContainer>
 
           {/* 🔹 삭제 확인 다이얼로그 */}
           <Dialog open={!!deleteTarget} onClose={handleCloseDialog} fullWidth>
