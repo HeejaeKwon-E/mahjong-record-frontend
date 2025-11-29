@@ -4,10 +4,8 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
   TableRow,
-  Paper,
   Typography,
 } from '@mui/material';
 import InsightsIcon from '@mui/icons-material/Insights';
