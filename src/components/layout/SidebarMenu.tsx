@@ -9,6 +9,8 @@ import {
   ListItemIcon,
   ListItemText,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import EditNoteIcon from '@mui/icons-material/EditNote';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
@@ -35,16 +37,28 @@ export const SidebarMenu: React.FC<SidebarMenuProps> = ({
   toggleColorMode,
   appVersion = 'v0.1.0',
 }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const handleSelectTab = (index: number) => {
     onChangeTab(index);
     onClose();
   };
 
   return (
-    <Drawer anchor="right" open={open} onClose={onClose}>
+    <Drawer
+      anchor="right"
+      open={open}
+      onClose={onClose}
+      slotProps={{
+        paper: {
+          sx: {
+            width: isMobile ? '60%' : 320, // 모바일: 화면 60%, 데스크탑: 320px
+          },
+        },
+      }}
+    >
       <Box
         sx={{
-          width: 240,
           height: '100%',
           pt: 2,
           pb: 2,

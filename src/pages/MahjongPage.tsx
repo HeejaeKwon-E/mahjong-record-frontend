@@ -298,6 +298,7 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
               color="inherit"
               onClick={() => setSidebarOpen(true)}
               sx={{ flexShrink: 0 }}
+              edge="end" // 👈 이 속성을 추가합니다.
             >
               <MenuIcon />
             </IconButton>
@@ -312,6 +313,7 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
         component="main"
         sx={{
           width: '100vw',
+          maxWidth: '100vw',
           boxSizing: 'border-box',
           px: 2.2,
           pt: 2.2,
