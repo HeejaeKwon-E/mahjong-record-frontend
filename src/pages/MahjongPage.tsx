@@ -3,7 +3,6 @@ import React, { useState, useCallback, useEffect } from 'react';
 import {
   AppBar,
   Toolbar,
-  Typography,
   Box,
   TextField,
   IconButton,
@@ -16,16 +15,7 @@ import {
   Snackbar,
   Alert,
   Slide,
-  Drawer,
-  ListItemButton,
-  List,
-  ListItemIcon,
-  ListItemText,
 } from '@mui/material';
-import EditNoteIcon from '@mui/icons-material/EditNote';
-import BarChartIcon from '@mui/icons-material/BarChart';
-import DarkModeIcon from '@mui/icons-material/DarkMode';
-import LightModeIcon from '@mui/icons-material/LightMode';
 import MenuIcon from '@mui/icons-material/Menu'; // 🔹 기존 ViewSidebarIcon 대신
 
 import { useAtom } from 'jotai';
@@ -40,12 +30,14 @@ import {
 } from '../state/mahjongAtoms';
 
 // 섹션/탭 컴포넌트들
-import { PlayerSection } from '../components/RecordTab/PlayerSection';
-import { RoundOrderSection } from '../components/RecordTab/RoundOrderSection';
-import { StatsSummarySection } from '../components/StatsTab/StatsSummarySection';
-import { RoundHistorySection } from '../components/StatsTab/RoundHistorySection';
+import { PlayerSection } from '../components/tab/recordTab/PlayerSection';
+import { RoundOrderSection } from '../components/tab/recordTab/RoundOrderSection';
+import { StatsSummarySection } from '../components/tab/dailyStatsTab/StatsSummarySection';
+import { RoundHistorySection } from '../components/tab/dailyStatsTab/RoundHistorySection';
 import { useServerSync } from '../hooks/useServerSync';
 import type { TransitionProps } from '@mui/material/transitions';
+import { AllTimeStatsSection } from '../components/tab/allStatsTab/AllTimeStatsSection';
+import { SidebarMenu } from '../components/layout/SidebarMenu';
 
 type SnackbarSeverity = 'success' | 'error' | 'info' | 'warning';
 
@@ -112,6 +104,7 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
     severity: 'success',
   });
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const appVersion = 'v0.1.0'; // 나중에 env 로 빼고 싶으면 여기서 처리
 
   const scrollDirection = useScrollDirection();
   const isAtTop = typeof window !== 'undefined' ? window.scrollY < 10 : true;
@@ -236,18 +229,23 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
     </>
   );
 
-  // 🔹 Stats 탭 렌더
-  const renderStatsTab = () => (
+  // 🔹 Daily Stats 탭 렌더
+  const renderDailyStatsTab = () => (
     <>
       <StatsSummarySection />
       <RoundHistorySection showSnackbar={showSnackbar} />
+    </>
+  );
+  // 🔹 All Stats 탭 렌더
+  const renderAllStatsTab = () => (
+    <>
+      <AllTimeStatsSection />
     </>
   );
 
   return (
     <Box
       sx={{
-        width: '100vw',
         minHeight: '100vh',
         bgcolor: 'background.default',
       }}
@@ -257,7 +255,7 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
         <AppBar position="fixed">
           <Toolbar
             sx={{
-              width: '100%',
+              width: '100vw',
               boxSizing: 'border-box',
               px: 2,
               py: 1,
@@ -279,7 +277,7 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
                 value={selectedDate}
                 onChange={(e) => handleDateChange(e.target.value)}
                 sx={{
-                  maxWidth: 170, // 너무 커지지 않게 제한
+                  maxWidth: 170,
                   bgcolor: 'background.paper',
                   borderRadius: 2,
                   '& .MuiInputBase-input': {
@@ -287,7 +285,11 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
                     py: 0.7,
                   },
                 }}
-                InputLabelProps={{ shrink: true }}
+                slotProps={{
+                  inputLabel: {
+                    shrink: true,
+                  },
+                }}
               />
             </Box>
 
@@ -309,7 +311,7 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
       <Box
         component="main"
         sx={{
-          width: '100%',
+          width: '100vw',
           boxSizing: 'border-box',
           px: 2.2,
           pt: 2.2,
@@ -321,7 +323,8 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
         }}
       >
         {tab === 0 && renderRecordTab()}
-        {tab === 1 && renderStatsTab()}
+        {tab === 1 && renderDailyStatsTab()}
+        {tab === 2 && renderAllStatsTab()}
       </Box>
 
       {/* 라운드 저장 전 확인 다이얼로그 */}
@@ -377,66 +380,15 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
         </Alert>
       </Snackbar>
       {/* 오른쪽 사이드바: 메뉴 + (모바일일 때) 날짜/다크모드 */}
-      <Drawer
-        anchor="right"
+      <SidebarMenu
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
-      >
-        <Box
-          sx={{
-            width: 240,
-            pt: 2,
-            pb: 2,
-          }}
-        >
-          {/* 🔹 헤더: "메뉴" + 다크모드 버튼 한 줄 정렬 */}
-          <Box
-            sx={{
-              px: 2,
-              pb: 1.5,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
-          >
-            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-              메뉴
-            </Typography>
-
-            <IconButton size="small" onClick={toggleColorMode}>
-              {mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
-            </IconButton>
-          </Box>
-
-          <List>
-            <ListItemButton
-              selected={tab === 0}
-              onClick={() => {
-                setTab(0);
-                setSidebarOpen(false);
-              }}
-            >
-              <ListItemIcon>
-                <EditNoteIcon />
-              </ListItemIcon>
-              <ListItemText primary="기록" />
-            </ListItemButton>
-
-            <ListItemButton
-              selected={tab === 1}
-              onClick={() => {
-                setTab(1);
-                setSidebarOpen(false);
-              }}
-            >
-              <ListItemIcon>
-                <BarChartIcon />
-              </ListItemIcon>
-              <ListItemText primary="일별 통계" />
-            </ListItemButton>
-          </List>
-        </Box>
-      </Drawer>
+        tab={tab}
+        onChangeTab={setTab}
+        mode={mode}
+        toggleColorMode={toggleColorMode}
+        appVersion={appVersion}
+      />
     </Box>
   );
 };

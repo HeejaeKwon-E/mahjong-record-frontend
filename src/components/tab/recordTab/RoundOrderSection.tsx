@@ -19,8 +19,8 @@ import {
   playerMapAtom,
   selectedDateAtom,
   serverTodayAtom,
-} from '../../state/mahjongAtoms';
-import { Section } from '../Section';
+} from '../../../state/mahjongAtoms';
+import { Section } from '../../common/Section';
 
 // dnd-kit
 import {

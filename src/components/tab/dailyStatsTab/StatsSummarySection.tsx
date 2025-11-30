@@ -11,9 +11,12 @@ import {
 import InsightsIcon from '@mui/icons-material/Insights';
 import { useAtom } from 'jotai';
 
-import { statsByPlayerAtom, selectedDateAtom } from '../../state/mahjongAtoms';
-import { Section } from '../Section';
-import { ScrollableTableContainer } from '../ScrollableTableContainer';
+import {
+  statsByPlayerAtom,
+  selectedDateAtom,
+} from '../../../state/mahjongAtoms';
+import { Section } from '../../common/Section';
+import { ScrollableTableContainer } from '../../common/ScrollableTableContainer';
 
 export const StatsSummarySection: React.FC = () => {
   const [statsByPlayer] = useAtom(statsByPlayerAtom);
@@ -46,7 +49,7 @@ export const StatsSummarySection: React.FC = () => {
               sx={{
                 tableLayout: 'auto',
                 '& td, & th': {
-                  px: 0.8, // 기본 16px → 6px 정도로 감소
+                  px: 0.7, // 기본 16px → 6px 정도로 감소
                   py: 0.9, // 기본 6px → 약간 넉넉하게
                   whiteSpace: 'nowrap',
                 },
@@ -101,8 +104,8 @@ export const StatsSummarySection: React.FC = () => {
                     <TableCell
                       component="th"
                       scope="row"
-                      align="center"
                       sx={{ whiteSpace: 'nowrap' }}
+                      align="center"
                     >
                       {stat.player.name}
                     </TableCell>

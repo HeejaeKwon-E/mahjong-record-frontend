@@ -7,14 +7,22 @@ type SectionProps = {
   icon?: React.ReactNode;
   children: React.ReactNode;
 };
-
 export const Section: React.FC<SectionProps> = ({ title, icon, children }) => {
   return (
-    <Box mb={0.25} sx={{ width: '100%' }}>
+    <Box
+      mb={0.25}
+      sx={{
+        width: '100%',
+        maxWidth: '100%',
+        overflowX: 'hidden', // ✅ 섹션 기준으로도 오버플로우 컷
+      }}
+    >
       <Paper
         variant="outlined"
         sx={{
           width: '100%',
+          maxWidth: '100%',
+          boxSizing: 'border-box', // ✅ padding 포함해서 100% 안에
           borderRadius: 2,
           p: 1.8,
           pt: 1.6,

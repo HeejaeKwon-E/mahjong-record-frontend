@@ -31,15 +31,23 @@ export const ScrollableTableContainer: React.FC<Props> = ({
   };
 
   return (
-    <Box sx={{ position: 'relative', width: '100%' }}>
+    <Box
+      sx={{
+        position: 'relative',
+        width: '100%',
+        maxWidth: '100%',
+        overflowX: 'auto', // 🔒 이 박스를 기준으로 밖으로 못 나가게
+      }}
+    >
       <TableContainer
         {...rest}
         ref={ref}
         onScroll={handleScroll}
         sx={{
-          bgcolor: 'background.paper',
+          width: '100%', // 🔴 핵심: 테이블 컨테이너 폭을 부모에 고정
           maxWidth: '100%',
-          overflowX: 'auto',
+          bgcolor: 'background.paper',
+          overflowX: 'auto', // 좌우 스크롤은 이 안에서만
           scrollbarWidth: 'thin',
           '&::-webkit-scrollbar': {
             height: 6,

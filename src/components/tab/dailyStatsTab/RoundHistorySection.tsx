@@ -24,11 +24,11 @@ import {
   selectedDateAtom,
   playerMapAtom,
   serverTodayAtom,
-} from '../../state/mahjongAtoms';
-import { Section } from '../Section';
-import type { Round } from '../../common/types';
-import { useServerSync } from '../../hooks/useServerSync';
-import { ScrollableTableContainer } from '../ScrollableTableContainer';
+} from '../../../state/mahjongAtoms';
+import { Section } from '../../common/Section';
+import type { Round } from '../../../common/types';
+import { useServerSync } from '../../../hooks/useServerSync';
+import { ScrollableTableContainer } from '../../common/ScrollableTableContainer';
 
 type RoundHistorySectionProps = {
   showSnackbar: (

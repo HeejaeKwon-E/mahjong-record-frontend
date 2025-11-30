@@ -21,9 +21,9 @@ import {
   selectedPlayerIdsAtom,
   currentRankingAtom,
   playersAtom,
-} from '../../state/mahjongAtoms';
-import { Section } from '../Section';
-import { usePlayersActions } from '../../hooks/usePlayersActions';
+} from '../../../state/mahjongAtoms';
+import { Section } from '../../common/Section';
+import { usePlayersActions } from '../../../hooks/usePlayersActions';
 
 type PlayerSectionProps = {
   showSnackbar: (
