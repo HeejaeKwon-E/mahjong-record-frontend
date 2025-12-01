@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Box,
+  Button,
   Table,
   TableBody,
   TableCell,
@@ -145,7 +146,11 @@ export const AllTimeStatsSection: React.FC = () => {
     setEndDate(value);
     validateDates(startDate, value);
   };
-
+  const handleResetDates = () => {
+    setStartDate('');
+    setEndDate('');
+    setDateError('');
+  };
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
       setSortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'));
@@ -177,50 +182,80 @@ export const AllTimeStatsSection: React.FC = () => {
       <Box
         sx={{
           mb: 1,
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          columnGap: 1,
-          rowGap: 0.6,
-          maxWidth: '100%',
+          display: 'flex',
+          flexDirection: 'row',
+          alignItems: 'stretch',
+          columnGap: 0.5,
+          flexWrap: 'nowrap', // ⬅ 절대 줄 바꿈 안 함
         }}
       >
-        <TextField
-          label="시작일"
-          type="date"
-          size="small"
-          value={startDate}
-          onChange={(e) => handleStartChange(e.target.value)}
-          error={!!dateError}
-          fullWidth
+        {/* 왼쪽: 시작일 / 종료일 세로 배치 */}
+        <Box
           sx={{
-            '& .MuiInputBase-input': {
-              fontSize: '0.75rem',
-              py: 0.5,
-            },
+            flexGrow: 1,
+            minWidth: 0, // ⬅ 여기 덕분에 가로가 줄어들 때 왼쪽이 잘 줄어듦
+            display: 'flex',
+            flexDirection: 'column',
+            rowGap: 1.2, // ⬅ 간격 살짝 늘림 (기존 0.6 → 1)
           }}
-          slotProps={{
-            inputLabel: { shrink: true },
-          }}
-        />
+        >
+          <TextField
+            label="시작일"
+            type="date"
+            size="small"
+            value={startDate}
+            onChange={(e) => handleStartChange(e.target.value)}
+            error={!!dateError}
+            sx={{
+              '& .MuiInputBase-input': {
+                fontSize: '0.75rem',
+                py: 0.5,
+              },
+            }}
+            slotProps={{
+              inputLabel: { shrink: true },
+            }}
+          />
 
-        <TextField
-          label="종료일"
-          type="date"
+          <TextField
+            label="종료일"
+            type="date"
+            size="small"
+            value={endDate}
+            onChange={(e) => handleEndChange(e.target.value)}
+            error={!!dateError}
+            sx={{
+              '& .MuiInputBase-input': {
+                fontSize: '0.75rem',
+                py: 0.5,
+              },
+            }}
+            slotProps={{
+              inputLabel: { shrink: true },
+            }}
+          />
+        </Box>
+
+        {/* 오른쪽: 리셋 버튼 */}
+        <Button
+          variant="contained" // ⬅ 색 채워진 버튼
+          color="primary"
           size="small"
-          value={endDate}
-          onChange={(e) => handleEndChange(e.target.value)}
-          error={!!dateError}
-          fullWidth
+          onClick={handleResetDates}
           sx={{
-            '& .MuiInputBase-input': {
-              fontSize: '0.75rem',
-              py: 0.5,
-            },
+            ml: 1,
+            alignSelf: 'center',
+            fontSize: '0.75rem',
+            px: 1.4,
+            py: 0.5,
+            whiteSpace: 'nowrap',
+            minWidth: 'auto',
+            borderRadius: 999, // pill 느낌 (원하면 빼도 됨)
+            boxShadow: 1, // ⬅ 살짝 음영
           }}
-          slotProps={{
-            inputLabel: { shrink: true },
-          }}
-        />
+        >
+          기간 초기화
+        </Button>
       </Box>
 
       {sortedRows.length === 0 ? (

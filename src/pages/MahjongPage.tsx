@@ -17,6 +17,8 @@ import {
   Slide,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu'; // 🔹 기존 ViewSidebarIcon 대신
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 
 import { useAtom } from 'jotai';
 
@@ -167,6 +169,41 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
     // 새 날짜에 맞는 데이터 재로딩
     reloadDateData();
   };
+  // 🔹 문자열(YYYY-MM-DD)을 Date 객체로 변환
+  const parseDateString = (value: string | null | undefined): Date | null => {
+    if (!value) return null;
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+
+    const [y, m, d] = trimmed.split('-').map(Number);
+    if (!y || !m || !d) return null;
+
+    return new Date(y, m - 1, d); // 로컬 기준
+  };
+
+  // 🔹 현재 선택된 날짜 기준으로 ±days 만큼 이동
+  // 🔹 현재 선택된 날짜 기준으로 ±days 만큼 이동 (KST 기준)
+  const shiftDate = (days: number) => {
+    const baseDate =
+      parseDateString(selectedDate) ??
+      parseDateString(serverToday) ??
+      new Date();
+
+    const next = new Date(baseDate);
+    // next 객체의 로컬 일자를 days 만큼 변경 (setDate는 KST 기준으로 동작)
+    next.setDate(baseDate.getDate() + days);
+
+    // 🚨 수정된 부분: KST 로컬 기준으로 연, 월, 일을 추출하여 문자열 생성
+    const year = next.getFullYear();
+    // getMonth()는 0부터 시작하므로 +1
+    const month = String(next.getMonth() + 1).padStart(2, '0');
+    const day = String(next.getDate()).padStart(2, '0');
+
+    const nextStr = `${year}-${month}-${day}`;
+
+    // 최종적으로 KST 기준의 YYYY-MM-DD 문자열을 전달
+    handleDateChange(nextStr);
+  };
 
   // 🔹 라운드 저장 전 확인 다이얼로그 열기
   const handleOpenConfirm = () => {
@@ -269,8 +306,21 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
               sx={{
                 flexGrow: 1,
                 display: 'flex',
+                alignItems: 'center',
+                gap: 0.5,
               }}
             >
+              {/* 하루 이전 */}
+              <IconButton
+                size="small"
+                color="inherit"
+                onClick={() => shiftDate(-1)}
+                sx={{ p: 0.5 }}
+              >
+                <ChevronLeftIcon fontSize="small" />
+              </IconButton>
+
+              {/* 날짜 선택 */}
               <TextField
                 type="date"
                 size="small"
@@ -285,12 +335,17 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
                     py: 0.7,
                   },
                 }}
-                slotProps={{
-                  inputLabel: {
-                    shrink: true,
-                  },
-                }}
               />
+
+              {/* 하루 이후 */}
+              <IconButton
+                size="small"
+                color="inherit"
+                onClick={() => shiftDate(1)}
+                sx={{ p: 0.5 }}
+              >
+                <ChevronRightIcon fontSize="small" />
+              </IconButton>
             </Box>
 
             {/* 🔹 오른쪽: 메뉴 버튼 (고정) */}
