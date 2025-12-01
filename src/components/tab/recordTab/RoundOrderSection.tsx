@@ -220,6 +220,8 @@ export const RoundOrderSection: React.FC<Props> = ({ onOpenConfirm }) => {
   return (
     <Section
       title="이번 라운드 등수"
+      collapsible
+      defaultExpanded
       icon={<EmojiEventsIcon fontSize="small" />}
     >
       {/* 안내 텍스트 */}

@@ -29,6 +29,8 @@ export const StatsSummarySection: React.FC = () => {
   return (
     <Section
       title={`${selectedDate} 통계`}
+      collapsible
+      defaultExpanded
       icon={<InsightsIcon fontSize="small" />}
     >
       <Typography

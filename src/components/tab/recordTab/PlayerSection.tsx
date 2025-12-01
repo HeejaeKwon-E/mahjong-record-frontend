@@ -130,6 +130,8 @@ export const PlayerSection: React.FC<PlayerSectionProps> = ({
   return (
     <Section
       title={`플레이어 (참가자 ${selectedPlayerIds.length}/4)`}
+      collapsible
+      defaultExpanded
       icon={<GroupIcon fontSize="small" />}
     >
       <Stack

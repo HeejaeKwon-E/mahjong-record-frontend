@@ -93,7 +93,12 @@ export const RoundHistorySection: React.FC<RoundHistorySectionProps> = ({
   };
 
   return (
-    <Section title={`라운드 기록`} icon={<HistoryIcon fontSize="small" />}>
+    <Section
+      title={`라운드 기록`}
+      collapsible
+      defaultExpanded
+      icon={<HistoryIcon fontSize="small" />}
+    >
       {filtered.length === 0 ? (
         <Typography variant="body2" color="text.secondary">
           이 날짜에는 기록된 라운드가 없습니다.
