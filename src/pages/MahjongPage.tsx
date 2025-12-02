@@ -328,8 +328,6 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
                 onChange={(e) => handleDateChange(e.target.value)}
                 sx={{
                   maxWidth: 170,
-                  bgcolor: 'background.paper',
-                  borderRadius: 2,
                   '& .MuiInputBase-input': {
                     fontSize: '0.85rem',
                     py: 0.7,
