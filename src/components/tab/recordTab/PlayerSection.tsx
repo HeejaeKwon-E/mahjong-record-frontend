@@ -45,7 +45,7 @@ export const PlayerSection: React.FC<PlayerSectionProps> = ({
   // 🔹 "플레이어 추가" 확인 다이얼로그 상태
   const [isAddConfirmOpen, setIsAddConfirmOpen] = useState(false);
 
-  const NAME_REGEX = /^[가-힣]{1,5}\d{2}$/;
+  const NAME_REGEX = /^[가-힣]{2}\d{2}$/;
 
   const handleOpenAddConfirm = () => {
     const trimmed = newPlayerName.trim();
