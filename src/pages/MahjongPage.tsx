@@ -36,6 +36,7 @@ import { PlayerSection } from '../components/tab/recordTab/PlayerSection';
 import { RoundOrderSection } from '../components/tab/recordTab/RoundOrderSection';
 import { StatsSummarySection } from '../components/tab/dailyStatsTab/StatsSummarySection';
 import { RoundHistorySection } from '../components/tab/dailyStatsTab/RoundHistorySection';
+import { TodayNanikiruSection } from '../components/tab/nanikiruTab/TodayNanikiruSection';
 import { useServerSync } from '../hooks/useServerSync';
 import type { TransitionProps } from '@mui/material/transitions';
 import { AllTimeStatsSection } from '../components/tab/allStatsTab/AllTimeStatsSection';
@@ -279,6 +280,12 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
       <AllTimeStatsSection />
     </>
   );
+  // 렌더 함수 추가
+  const renderNanikiruTab = () => (
+    <>
+      <TodayNanikiruSection />
+    </>
+  );
 
   return (
     <Box
@@ -380,6 +387,7 @@ const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
         {tab === 0 && renderRecordTab()}
         {tab === 1 && renderDailyStatsTab()}
         {tab === 2 && renderAllStatsTab()}
+        {tab === 3 && renderNanikiruTab()}
       </Box>
 
       {/* 라운드 저장 전 확인 다이얼로그 */}

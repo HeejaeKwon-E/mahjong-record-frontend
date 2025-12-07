@@ -15,6 +15,7 @@ import {
 import EditNoteIcon from '@mui/icons-material/EditNote';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import LeaderboardIcon from '@mui/icons-material/Leaderboard';
+import QuizIcon from '@mui/icons-material/Quiz';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
 
@@ -115,6 +116,15 @@ export const SidebarMenu: React.FC<SidebarMenuProps> = ({
               <LeaderboardIcon />
             </ListItemIcon>
             <ListItemText primary="전체 통계" />
+          </ListItemButton>
+          <ListItemButton
+            selected={tab === 3}
+            onClick={() => handleSelectTab(3)}
+          >
+            <ListItemIcon>
+              <QuizIcon />
+            </ListItemIcon>
+            <ListItemText primary="오늘의 나니키루" />
           </ListItemButton>
         </List>
 
