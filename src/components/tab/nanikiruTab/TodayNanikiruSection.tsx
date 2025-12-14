@@ -63,8 +63,14 @@ export const TodayNanikiruSection: React.FC = () => {
   const [tiles] = useAtom(nanikiruTilesAtom);
 
   // 사용자가 고른 답(라벨 기준, ex: "7삭")
+  const MAX_TRIES = 3;
+
   const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
   const [checked, setChecked] = useState(false);
+
+  // ✅ 추가
+  const [tries, setTries] = useState(0);
+  const [revealed, setRevealed] = useState(false);
 
   if (!problem) {
     return (
@@ -100,8 +106,31 @@ export const TodayNanikiruSection: React.FC = () => {
     }));
   }, [problem.hand, problem.tsumo, tiles]);
 
-  const isCorrect =
-    checked && selectedLabel != null && problem.answers.includes(selectedLabel);
+  //const isCorrect =
+  // selectedLabel != null && problem.answers.includes(selectedLabel);
+
+  const shouldReveal = revealed || tries >= MAX_TRIES;
+
+  const handleCheckAnswer = () => {
+    if (!selectedLabel) return;
+
+    setChecked(true);
+
+    const correct = problem.answers.includes(selectedLabel);
+    if (correct) {
+      setRevealed(true); // ✅ 정답이면 즉시 공개
+      return;
+    }
+
+    // ❌ 오답: 시도 +1
+    setTries((prev) => {
+      const next = prev + 1;
+      if (next >= MAX_TRIES) {
+        setRevealed(true); // ✅ 3번째 오답이면 공개
+      }
+      return next;
+    });
+  };
 
   return (
     <Section title="오늘의 나니키루" icon={<QuizIcon fontSize="small" />}>
@@ -200,30 +229,48 @@ export const TodayNanikiruSection: React.FC = () => {
         <Button
           variant="contained"
           size="small"
-          disabled={!selectedLabel}
-          onClick={() => setChecked(true)}
+          disabled={!selectedLabel || revealed || tries >= MAX_TRIES} // ✅ 3번 틀리면 공개되니 더 시도할 필요 없음
+          onClick={handleCheckAnswer}
           sx={{ fontSize: '0.85rem', px: 2, py: 0.6, borderRadius: 2 }}
         >
           정답 확인
         </Button>
 
-        {checked && (
+        {checked && !shouldReveal && (
           <Typography
             variant="body2"
-            sx={{
-              fontWeight: 600,
-              color: isCorrect ? 'success.main' : 'error.main',
-            }}
+            sx={{ fontWeight: 600, color: 'error.main' }}
           >
-            {isCorrect ? '정답입니다! 🎉' : '아쉽지만 오답입니다.'}
+            아쉽지만 오답입니다. ({tries}/{MAX_TRIES})
           </Typography>
         )}
+
+        {checked && shouldReveal && revealed && (
+          <Typography
+            variant="body2"
+            sx={{ fontWeight: 600, color: 'success.main' }}
+          >
+            정답입니다! 🎉
+          </Typography>
+        )}
+
+        {checked &&
+          shouldReveal &&
+          !problem.answers.includes(selectedLabel ?? '') && (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ fontWeight: 600 }}
+            >
+              3번 틀려서 해설을 공개합니다.
+            </Typography>
+          )}
       </Box>
 
       <Divider sx={{ my: 1.5 }} />
 
       {/* 정답 / 해설 / 효율 정보: 정답 확인 후에만 보여줌 */}
-      {checked && (
+      {shouldReveal && (
         <Box sx={{ mt: 2 }}>
           {/* 모범 답안 */}
           <Box sx={{ mb: 2 }}>
@@ -307,43 +354,12 @@ export const TodayNanikiruSection: React.FC = () => {
             <Typography
               variant="body2"
               sx={{
-                mb: 0.6,
-                fontSize: '0.9rem',
-                fontWeight: 500,
-              }}
-            >
-              샹텐: {problem.effective.shanten}
-            </Typography>
-
-            <Typography
-              variant="body2"
-              sx={{
                 mb: 1,
                 whiteSpace: 'pre-line',
-                fontSize: '0.85rem',
-                color: 'text.secondary',
               }}
             >
               {problem.effective.raw}
             </Typography>
-
-            {/* 유효패 목록 */}
-            <Stack spacing={0.6} sx={{ pl: 1 }}>
-              {problem.effective.tiles?.map((et) => (
-                <Typography
-                  key={et.label}
-                  variant="body2"
-                  sx={{
-                    fontSize: '0.85rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 0.4,
-                  }}
-                >
-                  • {et.label} ({et.count}장)
-                </Typography>
-              ))}
-            </Stack>
           </Box>
         </Box>
       )}
