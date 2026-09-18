@@ -1,47 +1,29 @@
-// App.tsx
-import React, { useMemo, useState } from 'react';
-import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
+import { useEffect, useState } from 'react';
 import MahjongPage from './pages/MahjongPage';
 
-const App: React.FC = () => {
-  // localStorage에서 모드 불러오기
-  const storedMode =
-    (localStorage.getItem('colorMode') as 'light' | 'dark') ?? 'light';
+export type ColorMode = 'light' | 'dark';
 
-  const [mode, setMode] = useState<'light' | 'dark'>(storedMode);
+const getInitialMode = (): ColorMode => {
+  const stored = localStorage.getItem('colorMode');
+  return stored === 'dark' ? 'dark' : 'light';
+};
 
-  const theme = useMemo(
-    () =>
-      createTheme({
-        palette: {
-          mode,
-          primary: {
-            main: mode === 'light' ? '#1976d2' : '#90caf9',
-          },
-          background: {
-            default: mode === 'light' ? '#fafafa' : '#121212',
-            paper: mode === 'light' ? '#fff' : '#1e1e1e',
-          },
-        },
-        shape: {
-          borderRadius: 10,
-        },
-      }),
-    [mode],
-  );
+/** Tailwind semantic token에 적용할 색상 모드를 관리합니다. */
+function App() {
+  const [mode, setMode] = useState<ColorMode>(getInitialMode);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.toggle('dark', mode === 'dark');
+    root.style.colorScheme = mode;
+    localStorage.setItem('colorMode', mode);
+  }, [mode]);
 
   const toggleColorMode = () => {
-    const next = mode === 'light' ? 'dark' : 'light';
-    setMode(next);
-    localStorage.setItem('colorMode', next); // 저장
+    setMode((prev) => (prev === 'light' ? 'dark' : 'light'));
   };
 
-  return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <MahjongPage toggleColorMode={toggleColorMode} mode={mode} />
-    </ThemeProvider>
-  );
-};
+  return <MahjongPage mode={mode} toggleColorMode={toggleColorMode} />;
+}
 
 export default App;

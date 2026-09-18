@@ -1,313 +1,192 @@
-// src/mahjong/components/RecordTab/RoundOrderSection.tsx
-import React from 'react';
-import {
-  Box,
-  Button,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
-  IconButton,
-  Typography,
-} from '@mui/material';
-import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
-import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
-
 import { useAtom } from 'jotai';
+import { useAtomValue } from 'jotai';
 import {
   currentRankingAtom,
   playerMapAtom,
   selectedDateAtom,
+  selectedPlayerIdsAtom,
   serverTodayAtom,
 } from '../../../state/mahjongAtoms';
-import { Section } from '../../common/Section';
 
-// dnd-kit
-import {
-  DndContext,
-  type DragEndEvent,
-  MouseSensor,
-  TouchSensor,
-  closestCenter,
-  useSensor,
-  useSensors,
-} from '@dnd-kit/core';
-import {
-  SortableContext,
-  useSortable,
-  arrayMove,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import { amber, brown, grey } from '@mui/material/colors';
-
-type Props = {
-  onOpenConfirm: () => void;
+type RoundOrderSectionProps = {
+  isSaving: boolean;
+  onSave: () => void;
 };
 
-/** 순위 뱃지 색상 헬퍼 */
-const getRankColor = (rank: number) => {
-  switch (rank) {
-    case 1:
-      // 🥇 금색: 살짝 밝은 호박색 계열
-      return amber[400]; // or amber[500]
-    case 2:
-      // 🥈 은색: 밝은 회색
-      return grey[300]; // or grey[400]
-    case 3:
-      // 🥉 동색: 주황/갈색 계열
-      return brown[500]; // or deepOrange[500]
-    default:
-      // 그 외: 흐린 회색
-      return ''; //grey[500];
-  }
-};
-const getRankTextColor = (rank: number) => {
-  switch (rank) {
-    case 1:
-      // amber[400] 바탕엔 진한 글자가 잘 보임
-      return 'black';
-    case 2:
-      return 'black'; // grey[300]도 밝아서 검정이 잘 보임
-    case 3:
-      return 'common.white'; // deepOrange[400] 위에는 흰색
-    default:
-      return ''; //'common.white';
-  }
-};
+const RANK_META = [
+  { label: '1위', score: '0점', className: 'text-gold' },
+  { label: '2위', score: '1점', className: 'text-silver' },
+  { label: '3위', score: '3점', className: 'text-bronze' },
+  { label: '4위', score: '6점', className: 'text-vermilion' },
+] as const;
 
-/** 개별 플레이어 한 줄 (드래그 가능한 행) */
-type SortableRowProps = {
-  id: number;
-  index: number;
-  name: string;
-};
+/**
+ * 등수 입력을 위한 모바일 우선 UI입니다.
+ * 드래그 대신 실제 최종 순위 순서대로 사람을 탭합니다.
+ */
+export function RoundOrderSection({
+  isSaving,
+  onSave,
+}: RoundOrderSectionProps) {
+  const sessionPlayerIds = useAtomValue(selectedPlayerIdsAtom);
+  const [draftRanking, setDraftRanking] = useAtom(currentRankingAtom);
+  const playerMap = useAtomValue(playerMapAtom);
+  const selectedDate = useAtomValue(selectedDateAtom);
+  const serverToday = useAtomValue(serverTodayAtom);
 
-const SortableRow: React.FC<SortableRowProps> = ({ id, index, name }) => {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id });
+  const isToday = Boolean(serverToday) && selectedDate === serverToday;
+  const sessionReady = sessionPlayerIds.length === 4;
+  const rankingReady = draftRanking.length === 4;
 
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
+  const handlePickRank = (playerId: number) => {
+    if (!sessionReady || !isToday) return;
 
-  const rank = index + 1;
+    setDraftRanking((previous) => {
+      const index = previous.indexOf(playerId);
 
-  return (
-    <ListItem
-      ref={setNodeRef}
-      style={style}
-      sx={{
-        width: '100%',
-        py: 1.1,
-        px: 1.3,
-        mb: 0.6,
-        borderRadius: 2,
-        border: '1px solid',
-        borderColor: isDragging ? 'primary.main' : 'divider',
-        bgcolor: isDragging ? 'action.selected' : 'background.paper',
-        boxShadow: isDragging ? 3 : 0,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 1.4,
+      // 이미 고른 사람을 다시 누르면 그 사람을 제거합니다.
+      // 뒤 등수는 자동으로 앞으로 당겨지므로 수정 동작도 한 번의 탭으로 끝납니다.
+      if (index !== -1) {
+        return previous.filter((id) => id !== playerId);
+      }
 
-        // 🔹 텍스트 선택 / iOS 롱프레스 메뉴 방지
-        userSelect: 'none',
-        WebkitUserSelect: 'none',
-        WebkitTouchCallout: 'none',
-      }}
-      // 🔹 이제 행 전체가 드래그 영역
-      {...attributes}
-      {...listeners}
-    >
-      {/* 순위 뱃지 */}
-      <ListItemIcon
-        sx={{
-          minWidth: 0,
-          mr: 1.2,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Box
-          sx={{
-            width: 28,
-            height: 28,
-            borderRadius: '50%',
-            bgcolor: getRankColor(rank),
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: getRankTextColor(rank),
-            fontSize: '0.9rem',
-            fontWeight: 700,
-          }}
-        >
-          {rank}
-        </Box>
-      </ListItemIcon>
-
-      {/* 이름 텍스트 */}
-      <ListItemText
-        primary={name}
-        slotProps={{
-          primary: {
-            fontSize: '1rem',
-            fontWeight: 500,
-          },
-        }}
-      />
-
-      {/* 드래그 핸들: 시각적으로 “여길 끌어라” 느낌 */}
-      <IconButton
-        edge="end"
-        size="small"
-        sx={{
-          ml: 1,
-          cursor: 'grab',
-          '&:active': { cursor: 'grabbing' },
-        }}
-        // 여기에도 listeners를 그대로 붙여서
-        // 아이콘을 잡았을 때도 곧바로 같은 드래그가 시작
-        {...listeners}
-      >
-        <DragIndicatorIcon fontSize="small" />
-      </IconButton>
-    </ListItem>
-  );
-};
-
-export const RoundOrderSection: React.FC<Props> = ({ onOpenConfirm }) => {
-  const [currentRanking, setCurrentRanking] = useAtom(currentRankingAtom);
-  const [playerMap] = useAtom(playerMapAtom);
-  const [selectedDate] = useAtom(selectedDateAtom); // 🔹 현재 선택된 날짜
-  const [serverToday] = useAtom(serverTodayAtom);
-  const isToday = selectedDate === serverToday;
-
-  // 마우스 + 터치 센서 (모바일에서도 드래그 되게)
-  const sensors = useSensors(
-    // 데스크탑 마우스: 바로 드래그
-    useSensor(MouseSensor),
-    // 모바일 터치: 살짝 long-press 후 드래그 (텍스트 선택 대신 드래그가 우선)
-    useSensor(TouchSensor, {
-      activationConstraint: {
-        delay: 180, // 0.18초 정도만 꾹 누르면 시작
-        tolerance: 5,
-      },
-    }),
-  );
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-
-    setCurrentRanking((prev) => {
-      const oldIndex = prev.indexOf(active.id as number);
-      const newIndex = prev.indexOf(over.id as number);
-      if (oldIndex === -1 || newIndex === -1) return prev;
-      return arrayMove(prev, oldIndex, newIndex);
+      if (previous.length >= 4) return previous;
+      return [...previous, playerId];
     });
   };
 
   return (
-    <Section
-      title="이번 라운드 등수"
-      collapsible
-      defaultExpanded
-      icon={<EmojiEventsIcon fontSize="small" />}
-    >
-      {/* 안내 텍스트 */}
-      <Typography
-        variant="body2"
-        color="text.secondary"
-        sx={{ mb: 1.2, fontSize: '0.85rem' }}
-      >
-        순위를 바꾸려면 행을 길게 눌러 위/아래로 드래그하세요.
-      </Typography>
+    <section className="mt-7" aria-labelledby="ranking-title">
+      <div className="mb-3 flex items-end justify-between gap-3">
+        <div>
+          <h2 id="ranking-title" className="text-[15px] font-bold text-text">
+            이번 라운드 결과
+          </h2>
+          <p className="mt-1 text-[12px] leading-5 text-muted">
+            1위부터 4위까지 순서대로 이름을 탭하세요.
+          </p>
+        </div>
+        <span className="shrink-0 text-[12px] font-semibold tabular-nums text-muted">
+          {draftRanking.length} / 4
+        </span>
+      </div>
 
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
-      >
-        <SortableContext
-          items={currentRanking}
-          strategy={verticalListSortingStrategy}
-        >
-          <List sx={{ width: '100%' }}>
-            {currentRanking.map((pid, idx) => {
-              const player = playerMap[pid];
-              if (!player) return null;
+      {!sessionReady ? (
+        <div className="rounded-xl border border-dashed border-border bg-surface/50 px-4 py-8 text-center">
+          <p className="text-sm font-semibold text-text">
+            먼저 오늘의 멤버 4명을 골라주세요.
+          </p>
+          <p className="mt-1 text-xs text-muted">
+            4명이 정해지면 바로 등수를 입력할 수 있습니다.
+          </p>
+        </div>
+      ) : !isToday ? (
+        <div className="rounded-xl border border-dashed border-border bg-surface/50 px-4 py-8 text-center">
+          <p className="text-sm font-semibold text-text">
+            과거 날짜는 기록을 추가할 수 없습니다.
+          </p>
+          <p className="mt-1 text-xs text-muted">
+            일별 탭에서 기존 기록을 확인할 수 있어요.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-2.5">
+          {sessionPlayerIds.map((playerId) => {
+            const player = playerMap[playerId];
+            if (!player) return null;
+
+            const rankIndex = draftRanking.indexOf(playerId);
+            const selected = rankIndex !== -1;
+            const rankMeta = selected ? RANK_META[rankIndex] : null;
+            const blocked = !selected && draftRanking.length >= 4;
+
+            return (
+              <button
+                key={playerId}
+                type="button"
+                aria-pressed={selected}
+                disabled={blocked}
+                onClick={() => handlePickRank(playerId)}
+                className={`min-h-[72px] rounded-xl border px-3 py-2.5 text-left transition active:scale-[0.985] disabled:opacity-35 ${
+                  selected
+                    ? 'border-jade bg-jade-soft text-[var(--jade-strong)] shadow-[var(--shadow-1)]'
+                    : 'border-border bg-surface text-text shadow-[var(--shadow-1)]'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <span
+                    className={`grid size-9 shrink-0 place-items-center rounded-lg text-sm font-black ${
+                      selected
+                        ? `${rankMeta?.className} bg-black/[0.05]`
+                        : 'bg-surface-2 text-muted'
+                    }`}
+                  >
+                    {selected ? rankIndex + 1 : '·'}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-bold">
+                      {player.name}
+                    </span>
+                    <span
+                      className={`mt-0.5 block text-[11px] ${selected ? 'text-[var(--jade-strong)]/75' : 'text-muted'}`}
+                    >
+                      {rankMeta
+                        ? `${rankMeta.label} · ${rankMeta.score}`
+                        : `${draftRanking.length + 1}위로 선택`}
+                    </span>
+                  </span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {isToday && sessionReady && draftRanking.length > 0 && (
+        <div className="mt-3 flex justify-end">
+          <button
+            type="button"
+            onClick={() => setDraftRanking([])}
+            className="min-h-9 rounded-lg px-2 text-xs font-semibold text-muted transition hover:bg-surface-2 hover:text-vermilion"
+          >
+            등수 다시 입력
+          </button>
+        </div>
+      )}
+
+      {isToday && sessionReady && (
+        <div className="sticky bottom-3 z-20 mt-5 rounded-card border border-border bg-surface/95 p-3 shadow-[var(--shadow-2)] backdrop-blur-md">
+          <div className="mb-2.5 grid grid-cols-4 gap-1.5">
+            {RANK_META.map((meta, index) => {
+              const playerId = draftRanking[index];
+              const player = playerId ? playerMap[playerId] : undefined;
+
               return (
-                <SortableRow
-                  key={pid}
-                  id={pid}
-                  index={idx}
-                  name={player.name}
-                />
+                <div
+                  key={meta.label}
+                  className="min-w-0 rounded-lg bg-surface-2 px-1.5 py-2 text-center"
+                >
+                  <div className={`text-[10px] font-bold ${meta.className}`}>
+                    {meta.label}
+                  </div>
+                  <div className="mt-0.5 truncate text-[11px] font-semibold text-text">
+                    {player?.name ?? '—'}
+                  </div>
+                </div>
               );
             })}
+          </div>
 
-            {currentRanking.length === 0 && (
-              <ListItem
-                sx={{
-                  width: '100%',
-                  py: 1.4,
-                  display: 'flex',
-                  justifyContent: 'center',
-                  textAlign: 'center',
-                }}
-              >
-                <ListItemText
-                  primary="참가자를 선택하면 순위를 정할 수 있어요."
-                  slotProps={{
-                    primary: {
-                      fontSize: '0.95rem',
-                      textAlign: 'center',
-                      width: '100%',
-                    },
-                  }}
-                  sx={{ textAlign: 'center', width: '100%' }}
-                />
-              </ListItem>
-            )}
-          </List>
-        </SortableContext>
-      </DndContext>
-
-      <Box
-        mt={1.8}
-        display="flex"
-        justifyContent="flex-end"
-        sx={{ width: '100%' }}
-      >
-        {isToday ? (
-          <Button
-            variant="contained"
-            size="medium"
-            onClick={onOpenConfirm}
-            sx={{ px: 3, py: 1, fontSize: '0.95rem', borderRadius: 2 }}
+          <button
+            type="button"
+            disabled={!rankingReady || isSaving}
+            onClick={onSave}
+            className="h-12 w-full rounded-full bg-jade text-[15px] font-semibold text-on-jade transition hover:bg-jade-strong active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-35"
           >
-            이 라운드 저장
-          </Button>
-        ) : (
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            sx={{ fontSize: '0.85rem' }}
-          >
-            라운드는 오늘 날짜에만 저장할 수 있어요.
-          </Typography>
-        )}
-      </Box>
-    </Section>
+            {isSaving ? '저장 중…' : '이 라운드 저장'}
+          </button>
+        </div>
+      )}
+    </section>
   );
-};
+}

@@ -12,10 +12,10 @@ export type NanikiruMeta = {
 };
 
 export type NanikiruTile = {
-  code: string;        // "5m", "동" ...
-  label: string;       // "五", "東" ...
-  color: string;       // "r", "b", ...
-  meaning_ko: string;  // "5만", "동" ...
+  code: string; // "5m", "동" ...
+  label: string; // "五", "東" ...
+  color: string; // "r", "b", ...
+  meaning_ko: string; // "5만", "동" ...
   type: 'number' | 'honor';
   suit?: 'man' | 'pin' | 'sou';
   rank?: number;
@@ -23,25 +23,25 @@ export type NanikiruTile = {
 };
 
 export type NanikiruEffectiveTile = {
-  label: string;  // "5삭" 같은거
-  count: number;  // 남은 장 수
+  label: string; // "5삭" 같은거
+  count: number; // 남은 장 수
 };
 
 export type NanikiruEffective = {
-  raw: string;               // "1샨텐 [5삭: 19, ...]"
+  raw: string; // "1샨텐 [5삭: 19, ...]"
   shanten: number;
   tiles: NanikiruEffectiveTile[] | null;
 };
 
 export type NanikiruProblem = {
   id: number;
-  round_text: string;       // "동1국 서가 8순"
+  round_text: string; // "동1국 서가 8순"
   dora_indicator: string[]; // ["2p"]
-  hand: string;             // "34567m2388p5779s"
-  tsumo: string;            // "1p"
-  calls: string[];          // 아직 안씀
-  answers: string[];        // ["7삭"]
-  explanations: string[];   // 설명 여러 줄
+  hand: string; // "34567m2388p5779s"
+  tsumo: string; // "1p"
+  calls: string[]; // 아직 안씀
+  answers: string[]; // ["7삭"]
+  explanations: string[]; // 설명 여러 줄
   effective: NanikiruEffective;
 };
 
@@ -56,7 +56,9 @@ export type NanikiruRoot = {
 const nanikiruData = rawData as NanikiruRoot;
 
 export const nanikiruTilesAtom = atom<NanikiruTile[]>(nanikiruData.tiles);
-export const nanikiruProblemsAtom = atom<NanikiruProblem[]>(nanikiruData.problems);
+export const nanikiruProblemsAtom = atom<NanikiruProblem[]>(
+  nanikiruData.problems,
+);
 
 // ===== 오늘의 문제 atom =====
 //
@@ -65,7 +67,6 @@ export const nanikiruProblemsAtom = atom<NanikiruProblem[]>(nanikiruData.problem
 export const todayNanikiruProblemAtom = atom((get) => {
   const today = get(selectedDateAtom);
   const problems = get(nanikiruProblemsAtom);
-  console.log('todayNanikiruProblemAtom - today:', today, 'problems count:', problems);
 
   if (!today || problems.length === 0) return null;
 

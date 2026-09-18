@@ -1,459 +1,301 @@
-// src/mahjong/MahjongPage.tsx
-import React, { useState, useCallback, useEffect } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
+import { useAtom, useSetAtom } from 'jotai';
+import type { ColorMode } from '../App';
 import {
-  AppBar,
-  Toolbar,
-  Box,
-  TextField,
-  IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogContentText,
-  DialogActions,
-  Button,
-  Snackbar,
-  Alert,
-  Slide,
-} from '@mui/material';
-import MenuIcon from '@mui/icons-material/Menu'; // 🔹 기존 ViewSidebarIcon 대신
-import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-
-import { useAtom } from 'jotai';
-
-// jotai atoms
-import {
+  currentRankingAtom,
   selectedDateAtom,
   selectedPlayerIdsAtom,
-  currentRankingAtom,
-  playerMapAtom,
   serverTodayAtom,
 } from '../state/mahjongAtoms';
-
-// 섹션/탭 컴포넌트들
+import { useServerSync } from '../hooks/useServerSync';
 import { PlayerSection } from '../components/tab/recordTab/PlayerSection';
 import { RoundOrderSection } from '../components/tab/recordTab/RoundOrderSection';
-import { StatsSummarySection } from '../components/tab/dailyStatsTab/StatsSummarySection';
-import { RoundHistorySection } from '../components/tab/dailyStatsTab/RoundHistorySection';
-import { TodayNanikiruSection } from '../components/tab/nanikiruTab/TodayNanikiruSection';
-import { useServerSync } from '../hooks/useServerSync';
-import type { TransitionProps } from '@mui/material/transitions';
-import { AllTimeStatsSection } from '../components/tab/allStatsTab/AllTimeStatsSection';
-import { SidebarMenu } from '../components/layout/SidebarMenu';
+import { AppNavigation, type AppTab } from '../components/layout/AppNavigation';
+import { usePlayersActions } from '../hooks/usePlayersActions';
 
-type SnackbarSeverity = 'success' | 'error' | 'info' | 'warning';
+// 차트 라이브러리와 대용량 나니키루 JSON을 첫 화면 번들에서 분리합니다.
+// 사용자가 해당 탭을 처음 열 때만 관련 코드와 데이터를 내려받습니다.
+const DailyStatsTab = lazy(
+  () => import('../components/tab/dailyStatsTab/DailyStatsTab'),
+);
+const AllTimeStatsSection = lazy(() =>
+  import('../components/tab/allStatsTab/AllTimeStatsSection').then(
+    (module) => ({
+      default: module.AllTimeStatsSection,
+    }),
+  ),
+);
+const TodayNanikiruSection = lazy(() =>
+  import('../components/tab/nanikiruTab/TodayNanikiruSection').then(
+    (module) => ({
+      default: module.TodayNanikiruSection,
+    }),
+  ),
+);
+
+type FeedbackSeverity = 'success' | 'error' | 'info' | 'warning';
+
+type MahjongPageProps = {
+  mode: ColorMode;
+  toggleColorMode: () => void;
+};
 
 type SnackbarState = {
   open: boolean;
   message: string;
-  severity: SnackbarSeverity;
+  severity: FeedbackSeverity;
 };
 
-interface MahjongPageProps {
-  mode: 'light' | 'dark';
-  toggleColorMode: () => void;
+const FEEDBACK_STYLE: Record<FeedbackSeverity, string> = {
+  success: 'border-jade/40 bg-jade text-on-jade',
+  error: 'border-vermilion/40 bg-vermilion text-on-vermilion',
+  warning: 'border-gold/40 bg-gold text-on-gold',
+  info: 'border-border bg-surface text-text',
+};
+
+function parseDateString(value: string | null | undefined): Date | null {
+  if (!value?.trim()) return null;
+  const [year, month, day] = value.split('-').map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
 }
 
-/** 스크롤 방향 감지용 커스텀 훅 */
-function useScrollDirection() {
-  const [direction, setDirection] = useState<'up' | 'down'>('up');
-
-  useEffect(() => {
-    let lastY = window.scrollY;
-
-    const onScroll = () => {
-      const currentY = window.scrollY;
-      if (Math.abs(currentY - lastY) < 4) return; // 작은 움직임 무시
-      if (currentY > lastY) {
-        setDirection('down');
-      } else {
-        setDirection('up');
-      }
-      lastY = currentY;
-    };
-
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
-
-  return direction;
+function toLocalDateString(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
-/** Slide 트랜지션용 래퍼 */
-const SlideDown = React.forwardRef(function SlideDown(
-  props: TransitionProps & { children: React.ReactElement },
-  ref: React.Ref<unknown>,
-) {
-  return <Slide direction="down" ref={ref} {...props} />;
-});
+function formatDateSubLabel(value: string, today: string | null) {
+  const parsed = parseDateString(value);
+  if (!parsed) return '';
 
-const MahjongPage: React.FC<MahjongPageProps> = ({ mode, toggleColorMode }) => {
+  const weekday = ['일', '월', '화', '수', '목', '금', '토'][parsed.getDay()];
+  return value === today ? `${weekday}요일 · 오늘` : `${weekday}요일`;
+}
+
+function TabLoadingFallback() {
+  return (
+    <div
+      role="status"
+      className="rounded-card border border-border bg-surface px-4 py-16 text-center text-sm text-muted"
+    >
+      화면을 불러오는 중입니다.
+    </div>
+  );
+}
+
+/**
+ * 앱 셸과 네 개의 기능 탭을 관리합니다.
+ *
+ * 이번 단계의 핵심은 "기록 중 최소 터치"입니다.
+ * - Material AppBar에는 제목, 날짜 선택, 햄버거 메뉴를 배치
+ * - 화면 이동은 햄버거를 눌렀을 때 열리는 우측 Drawer에서 처리
+ * - 색상 모드는 화면 설정이므로 Drawer 하단에서 처리
+ * - 세션 멤버와 이번 라운드 순위를 분리
+ * - 등수를 드래그하지 않고 1위부터 탭
+ *
+ * 일별/전체/나니키루는 탭 진입 시 지연 로딩해 초기 번들 크기를 제한합니다.
+ */
+export default function MahjongPage({
+  mode,
+  toggleColorMode,
+}: MahjongPageProps) {
   const { reloadDateData } = useServerSync();
-  // ▼ jotai 상태
-  const [playerMap] = useAtom(playerMapAtom);
-  const [currentRanking] = useAtom(currentRankingAtom);
   const [selectedDate, setSelectedDate] = useAtom(selectedDateAtom);
   const [serverToday, setServerToday] = useAtom(serverTodayAtom);
-  const [, setCurrentRanking] = useAtom(currentRankingAtom);
-  const [, setSelectedPlayerIds] = useAtom(selectedPlayerIdsAtom);
+  const [draftRanking, setDraftRanking] = useAtom(currentRankingAtom);
+  const setSessionPlayerIds = useSetAtom(selectedPlayerIdsAtom);
+  const { reloadPlayers } = usePlayersActions();
 
-  // ▼ 로컬 UI 상태
-  const [tab, setTab] = useState<number>(0);
-  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [tab, setTab] = useState<AppTab>('record');
+  const [isSaving, setIsSaving] = useState(false);
   const [snackbar, setSnackbar] = useState<SnackbarState>({
     open: false,
     message: '',
     severity: 'success',
   });
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const appVersion = 'v0.1.0'; // 나중에 env 로 빼고 싶으면 여기서 처리
 
-  const scrollDirection = useScrollDirection();
-  const isAtTop = typeof window !== 'undefined' ? window.scrollY < 10 : true;
-  const showAppBar = scrollDirection === 'up' || isAtTop;
-  // 서버에서 오늘 날짜 한 번 받아오기
-  useEffect(() => {
-    const fetchServerDate = async () => {
-      try {
-        const res = await fetch('/api/server-date');
-        if (!res.ok) throw new Error('failed to fetch server date');
-        const data = await res.json();
-
-        const today = (data?.today as string) ?? '';
-        if (!today) return;
-
-        // 서버 today 저장
-        setServerToday(today);
-
-        // selectedDate가 아직 비어 있으면 서버 today로 초기화
-        setSelectedDate((prev) =>
-          prev && prev.trim().length > 0 ? prev : today,
-        );
-      } catch (e) {
-        console.error('failed to load server date', e);
-      }
-    };
-
-    if (!serverToday) {
-      fetchServerDate();
-    }
-  }, [serverToday, setServerToday, setSelectedDate]);
-  // 🔹 공통 스낵바 helper
   const showSnackbar = useCallback(
-    (message: string, severity: SnackbarSeverity) => {
+    (message: string, severity: FeedbackSeverity) => {
       setSnackbar({ open: true, message, severity });
     },
     [],
   );
 
-  const handleSnackbarClose = (
-    _event?: React.SyntheticEvent | Event,
-    reason?: string,
-  ) => {
-    if (reason === 'clickaway') return;
-    setSnackbar((prev) => ({ ...prev, open: false }));
+  // 전체 플레이어는 앱 생명주기 동안 한 번만 불러옵니다.
+  // 기록 탭을 닫았다 다시 열 때는 기존 atom 값을 그대로 사용합니다.
+  useEffect(() => {
+    void reloadPlayers();
+  }, [reloadPlayers]);
+
+  // 서버의 기준 날짜를 최초 한 번 받아옵니다. 클라이언트 timezone 추정에 의존하지 않습니다.
+  useEffect(() => {
+    if (serverToday) return;
+
+    const controller = new AbortController();
+
+    const fetchServerDate = async () => {
+      try {
+        const response = await fetch('/api/server-date', {
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error('failed to fetch server date');
+
+        const data = await response.json();
+        const today = typeof data?.today === 'string' ? data.today : '';
+        if (!today) return;
+
+        setServerToday(today);
+        setSelectedDate((previous) => (previous.trim() ? previous : today));
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError')
+          return;
+        console.error('failed to load server date', error);
+      }
+    };
+
+    void fetchServerDate();
+    return () => controller.abort();
+  }, [serverToday, setSelectedDate, setServerToday]);
+
+  // 간단한 토스트는 별도 UI 라이브러리 없이 유지합니다. 2차에서 Sonner로 치환 가능합니다.
+  useEffect(() => {
+    if (!snackbar.open) return;
+    const timer = window.setTimeout(() => {
+      setSnackbar((previous) => ({ ...previous, open: false }));
+    }, 2800);
+
+    return () => window.clearTimeout(timer);
+  }, [snackbar.open, snackbar.message]);
+
+  const handleDateChange = (nextDate: string) => {
+    const normalized = nextDate.trim() || serverToday || '';
+    if (!normalized || normalized === selectedDate) return;
+
+    // 새 날짜의 데이터가 오기 전에 이전 날짜 참가자/초안이 보이지 않게 즉시 초기화합니다.
+    setSessionPlayerIds([]);
+    setDraftRanking([]);
+    setSelectedDate(normalized);
+
+    // useServerSync effect가 새 selectedDate로 자동 재조회하므로 여기서 수동 fetch하지 않습니다.
+    // 이 방식으로 이전 closure를 참조하던 중복 요청을 제거합니다.
   };
 
-  // 🔹 날짜 변경 시: 그 날짜의 파티 멤버 기준으로 selected/순위 셋업
-  const handleDateChange = (value: string) => {
-    const newDate =
-      value && value.trim().length > 0 ? value : serverToday || '';
-
-    // 1) 날짜만 먼저 변경
-    setSelectedDate(newDate);
-
-    // 2) 이 시점에는 아직 새 날짜 데이터가 안 들어왔으니
-    //    선택/순위는 일단 초기화
-    setSelectedPlayerIds([]);
-    setCurrentRanking([]);
-    // 새 날짜에 맞는 데이터 재로딩
-    reloadDateData();
-  };
-  // 🔹 문자열(YYYY-MM-DD)을 Date 객체로 변환
-  const parseDateString = (value: string | null | undefined): Date | null => {
-    if (!value) return null;
-    const trimmed = value.trim();
-    if (!trimmed) return null;
-
-    const [y, m, d] = trimmed.split('-').map(Number);
-    if (!y || !m || !d) return null;
-
-    return new Date(y, m - 1, d); // 로컬 기준
-  };
-
-  // 🔹 현재 선택된 날짜 기준으로 ±days 만큼 이동
-  // 🔹 현재 선택된 날짜 기준으로 ±days 만큼 이동 (KST 기준)
   const shiftDate = (days: number) => {
-    const baseDate =
+    const base =
       parseDateString(selectedDate) ??
       parseDateString(serverToday) ??
       new Date();
-
-    const next = new Date(baseDate);
-    // next 객체의 로컬 일자를 days 만큼 변경 (setDate는 KST 기준으로 동작)
-    next.setDate(baseDate.getDate() + days);
-
-    // 🚨 수정된 부분: KST 로컬 기준으로 연, 월, 일을 추출하여 문자열 생성
-    const year = next.getFullYear();
-    // getMonth()는 0부터 시작하므로 +1
-    const month = String(next.getMonth() + 1).padStart(2, '0');
-    const day = String(next.getDate()).padStart(2, '0');
-
-    const nextStr = `${year}-${month}-${day}`;
-
-    // 최종적으로 KST 기준의 YYYY-MM-DD 문자열을 전달
-    handleDateChange(nextStr);
+    const next = new Date(base);
+    next.setDate(base.getDate() + days);
+    handleDateChange(toLocalDateString(next));
   };
 
-  // 🔹 라운드 저장 전 확인 다이얼로그 열기
-  const handleOpenConfirm = () => {
-    // currentRanking 또는 "이번 라운드에 실제로 포함된 플레이어 ID" 기준
-    if (currentRanking.length !== 4) {
-      showSnackbar('라운드는 정확히 4명이 있어야 저장할 수 있어요.', 'warning');
+  const handleSaveRound = async () => {
+    if (draftRanking.length !== 4) {
+      showSnackbar('1위부터 4위까지 모두 선택해주세요.', 'warning');
       return;
     }
-    setIsConfirmOpen(true);
-  };
 
-  const handleCloseConfirm = () => {
-    setIsConfirmOpen(false);
-  };
-
-  // 🔹 실제로 라운드 저장
-  const handleConfirmSave = async () => {
-    if (currentRanking.length !== 4) {
-      setIsConfirmOpen(false);
-      showSnackbar('참가자가 4명이 아닙니다. 다시 확인해주세요.', 'error');
-      return;
-    }
-    if (selectedDate !== serverToday) {
-      setIsConfirmOpen(false);
+    if (!serverToday || selectedDate !== serverToday) {
       showSnackbar('라운드는 오늘 날짜에만 저장할 수 있어요.', 'warning');
       return;
     }
+
     try {
-      const res = await fetch('/api/rounds', {
+      setIsSaving(true);
+      const response = await fetch('/api/rounds', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           date: selectedDate,
-          ranking: currentRanking, // [playerId1, playerId2, ...]
+          ranking: draftRanking,
         }),
       });
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
         throw new Error(data.error || '라운드 저장 실패');
       }
 
-      // 여기서 round_id를 써서 로컬에 직접 push하지 않고,
-      // 서버에 실제로 들어간 상태를 다시 GET
-      await reloadDateData();
-
-      setIsConfirmOpen(false);
-      showSnackbar('라운드가 저장되었습니다!', 'success');
-    } catch (err) {
-      console.error(err);
-      setIsConfirmOpen(false);
+      // 서버가 저장한 값을 기준으로 일별 통계/히스토리를 다시 맞춥니다.
+      // useServerSync는 세션 멤버는 유지하고 draftRanking만 비우도록 구현되어 있습니다.
+      await reloadDateData(selectedDate);
+      showSnackbar('라운드를 저장했습니다.', 'success');
+    } catch (error) {
+      console.error(error);
       showSnackbar('라운드 저장 중 오류가 발생했습니다.', 'error');
+    } finally {
+      setIsSaving(false);
     }
   };
-  // 🔹 Record 탭 렌더
-  const renderRecordTab = () => (
-    <>
-      <PlayerSection showSnackbar={showSnackbar} />
-      <RoundOrderSection onOpenConfirm={handleOpenConfirm} />
-    </>
-  );
-
-  // 🔹 Daily Stats 탭 렌더
-  const renderDailyStatsTab = () => (
-    <>
-      <StatsSummarySection />
-      <RoundHistorySection showSnackbar={showSnackbar} />
-    </>
-  );
-  // 🔹 All Stats 탭 렌더
-  const renderAllStatsTab = () => (
-    <>
-      <AllTimeStatsSection />
-    </>
-  );
-  // 렌더 함수 추가
-  const renderNanikiruTab = () => (
-    <>
-      <TodayNanikiruSection />
-    </>
-  );
 
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        bgcolor: 'background.default',
-      }}
-    >
-      {/* 상단 AppBar: 스크롤에 따라 숨김/표시 */}
-      <SlideDown in={showAppBar}>
-        <AppBar position="fixed">
-          <Toolbar
-            sx={{
-              width: '100vw',
-              boxSizing: 'border-box',
-              px: 2,
-              py: 1,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1,
-            }}
-          >
-            {/* 🔹 왼쪽: 날짜 */}
-            <Box
-              sx={{
-                flexGrow: 1,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 0.5,
-              }}
-            >
-              {/* 하루 이전 */}
-              <IconButton
-                size="small"
-                color="inherit"
-                onClick={() => shiftDate(-1)}
-                sx={{ p: 0.5 }}
-              >
-                <ChevronLeftIcon fontSize="small" />
-              </IconButton>
-
-              {/* 날짜 선택 */}
-              <TextField
-                type="date"
-                size="small"
-                value={selectedDate}
-                onChange={(e) => handleDateChange(e.target.value)}
-                sx={{
-                  maxWidth: 170,
-                  '& .MuiInputBase-input': {
-                    fontSize: '0.85rem',
-                    py: 0.7,
-                  },
-                }}
-              />
-
-              {/* 하루 이후 */}
-              <IconButton
-                size="small"
-                color="inherit"
-                onClick={() => shiftDate(1)}
-                sx={{ p: 0.5 }}
-              >
-                <ChevronRightIcon fontSize="small" />
-              </IconButton>
-            </Box>
-
-            {/* 🔹 오른쪽: 메뉴 버튼 (고정) */}
-            <IconButton
-              color="inherit"
-              onClick={() => setSidebarOpen(true)}
-              sx={{ flexShrink: 0 }}
-              edge="end" // 👈 이 속성을 추가합니다.
-            >
-              <MenuIcon />
-            </IconButton>
-          </Toolbar>
-        </AppBar>
-      </SlideDown>
-
-      {/* AppBar 만큼 여백 */}
-      <Toolbar />
-      {/* 메인 컨텐츠 */}
-      <Box
-        component="main"
-        sx={{
-          width: '100vw',
-          maxWidth: '100vw',
-          boxSizing: 'border-box',
-          px: 2.2,
-          pt: 2.2,
-          pb: 4,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'stretch',
-          gap: 2,
-        }}
-      >
-        {tab === 0 && renderRecordTab()}
-        {tab === 1 && renderDailyStatsTab()}
-        {tab === 2 && renderAllStatsTab()}
-        {tab === 3 && renderNanikiruTab()}
-      </Box>
-
-      {/* 라운드 저장 전 확인 다이얼로그 */}
-      <Dialog open={isConfirmOpen} onClose={handleCloseConfirm} fullWidth>
-        <DialogTitle>이 라운드를 저장할까요?</DialogTitle>
-        <DialogContent>
-          <DialogContentText sx={{ mb: 1.5 }}>
-            {selectedDate} 라운드의 등수를 다음과 같이 저장합니다:
-          </DialogContentText>
-          <Box component="ul" sx={{ pl: 3, m: 0 }}>
-            {currentRanking.map((pid, idx) => {
-              const p = playerMap[pid];
-              return (
-                <li key={pid}>
-                  {idx + 1}위: {p?.name ?? '?'}
-                </li>
-              );
-            })}
-          </Box>
-        </DialogContent>
-        <DialogActions
-          sx={{
-            justifyContent: 'space-between',
-            px: 3,
-            pb: 2,
-            gap: 2,
-          }}
-        >
-          <Button onClick={handleCloseConfirm}>취소</Button>
-          <Button
-            onClick={handleConfirmSave}
-            variant="contained"
-            color="primary"
-          >
-            저장
-          </Button>
-        </DialogActions>
-      </Dialog>
-      {/* 공통 스낵바 */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={2500}
-        onClose={handleSnackbarClose}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert
-          onClose={handleSnackbarClose}
-          severity={snackbar.severity}
-          variant="filled"
-          sx={{ width: '100%' }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
-      {/* 오른쪽 사이드바: 메뉴 + (모바일일 때) 날짜/다크모드 */}
-      <SidebarMenu
-        open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        tab={tab}
-        onChangeTab={setTab}
+    <div className="min-h-dvh bg-bg text-text">
+      <AppNavigation
+        currentTab={tab}
         mode={mode}
-        toggleColorMode={toggleColorMode}
-        appVersion={appVersion}
+        selectedDate={selectedDate || serverToday || ''}
+        dateSubLabel={
+          formatDateSubLabel(selectedDate || serverToday || '', serverToday) ||
+          '눌러서 날짜 선택'
+        }
+        onToggleColorMode={toggleColorMode}
+        onDateChange={handleDateChange}
+        onShiftDate={shiftDate}
+        onTabChange={(nextTab) => {
+          setTab(nextTab);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
       />
-    </Box>
-  );
-};
 
-export default MahjongPage;
+      <div className="mx-auto min-h-dvh w-full max-w-[720px]">
+        <main className="px-4 pb-10 pt-6 sm:px-6">
+          {tab === 'record' && (
+            <div className="mx-auto max-w-[480px]">
+              {/* 날짜가 바뀌면 접힘 상태도 새 날짜의 세션 멤버 기준으로 초기화합니다. */}
+              <PlayerSection key={selectedDate} showSnackbar={showSnackbar} />
+              <RoundOrderSection
+                isSaving={isSaving}
+                onSave={() => void handleSaveRound()}
+              />
+            </div>
+          )}
+
+          {tab === 'daily' && (
+            <Suspense fallback={<TabLoadingFallback />}>
+              <DailyStatsTab
+                reloadDateData={reloadDateData}
+                showSnackbar={showSnackbar}
+              />
+            </Suspense>
+          )}
+
+          {tab === 'all' && (
+            <Suspense fallback={<TabLoadingFallback />}>
+              <AllTimeStatsSection />
+            </Suspense>
+          )}
+          {tab === 'nanikiru' && (
+            <Suspense fallback={<TabLoadingFallback />}>
+              <TodayNanikiruSection />
+            </Suspense>
+          )}
+        </main>
+      </div>
+
+      {snackbar.open && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-4">
+          <div
+            role="status"
+            className={`max-w-sm rounded-xl border px-4 py-3 text-sm font-semibold shadow-xl ${FEEDBACK_STYLE[snackbar.severity]}`}
+          >
+            {snackbar.message}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -1,424 +1,375 @@
-// src/mahjong/components/tab/nanikiru/TodayNanikiruSection.tsx
-import React, { useMemo, useState } from 'react';
-import {
-  Box,
-  Chip,
-  Divider,
-  Typography,
-  Button,
-  Stack,
-  Alert,
-} from '@mui/material';
-import QuizIcon from '@mui/icons-material/Quiz';
-import { useAtom } from 'jotai';
+import { useMemo, useState } from 'react';
+import { useAtomValue } from 'jotai';
 
-import { Section } from '../../common/Section';
+import { MahjongTile } from '../../mahjong/MahjongTile';
+import { selectedDateAtom } from '../../../state/mahjongAtoms';
 import {
-  todayNanikiruProblemAtom,
+  type NanikiruProblem,
+  type NanikiruTile,
   nanikiruTilesAtom,
+  todayNanikiruProblemAtom,
 } from '../../../state/nanikiruAtoms';
 
-/** hand / tsumo 문자열을 타일 코드 배열로 파싱 */
-function parseHandToCodes(hand: string, tsumo: string): string[] {
-  const parseOne = (s: string): string[] => {
-    const result: string[] = [];
-    let digits = '';
+const MAX_TRIES = 3;
 
-    for (const ch of s) {
-      if (/[0-9]/.test(ch)) {
-        digits += ch;
-      } else if (/[mps]/.test(ch)) {
-        for (const d of digits) result.push(`${d}${ch}`);
-        digits = '';
-      } else {
-        if (digits) digits = '';
-        result.push(ch); // 지패(한자/한글) 그대로
-      }
+type RevealReason = 'correct' | 'maxTries' | null;
+
+type NanikiruProblemViewProps = {
+  problem: NanikiruProblem;
+  tiles: NanikiruTile[];
+};
+
+/** "34567m2388p" 형식의 압축 문자열을 개별 패 코드로 변환합니다. */
+function parseTileCodes(source: string): string[] {
+  const result: string[] = [];
+  let digits = '';
+
+  for (const character of source) {
+    if (/[0-9]/.test(character)) {
+      digits += character;
+      continue;
     }
-    return result;
-  };
 
-  return [...parseOne(hand), ...parseOne(tsumo)];
-}
+    if (/[mps]/.test(character)) {
+      for (const digit of digits) result.push(`${digit}${character}`);
+      digits = '';
+      continue;
+    }
 
-// 타일 코드 → meaning_ko 로 변환 (없으면 코드 그대로)
-function codeToLabel(code: string, tiles: any[]): string {
-  const found = tiles.find((t) => t.code === code);
-  return found?.meaning_ko || code;
-}
-
-type Option = { code: string; label: string; kind: 'number' | 'honor' };
-
-function isHonorCode(code: string) {
-  // 숫자+슈트(m/p/s)가 아니면 지패로 취급
-  return !/^[0-9][mps]$/.test(code);
-}
-
-function uniqByLabelPreserveOrder(opts: Option[]) {
-  const seen = new Set<string>();
-  const out: Option[] = [];
-  for (const o of opts) {
-    if (seen.has(o.label)) continue;
-    seen.add(o.label);
-    out.push(o);
-  }
-  return out;
-}
-
-export const TodayNanikiruSection: React.FC = () => {
-  const [problem] = useAtom(todayNanikiruProblemAtom);
-  const [tiles] = useAtom(nanikiruTilesAtom);
-
-  const MAX_TRIES = 3;
-
-  // 사용자가 고른 답(라벨 기준, ex: "7삭")
-  const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
-
-  // 시도/공개 상태
-  const [tries, setTries] = useState(0); // 오답 횟수
-  const [revealReason, setRevealReason] = useState<
-    'correct' | 'maxTries' | null
-  >(null);
-  const shouldReveal = revealReason != null;
-
-  if (!problem) {
-    return (
-      <Section title="오늘의 나니키루" icon={<QuizIcon fontSize="small" />}>
-        <Typography variant="body2" color="text.secondary">
-          오늘의 문제를 불러오지 못했습니다.
-        </Typography>
-      </Section>
-    );
+    // 숫자패가 아닌 문자는 동/남/서/북/백/발/중 같은 자패 코드입니다.
+    digits = '';
+    result.push(character);
   }
 
-  const options = useMemo(() => {
-    const codes = parseHandToCodes(problem.hand, problem.tsumo);
+  return result;
+}
 
-    const base: Option[] = codes.map((code) => ({
+/** 데이터셋에 누락된 코드가 있어도 화면 전체가 깨지지 않게 최소 메타데이터를 만듭니다. */
+function createFallbackTile(code: string): NanikiruTile {
+  const match = /^([0-9])([mps])$/.exec(code);
+  if (!match) {
+    return {
       code,
-      label: codeToLabel(code, tiles as any[]),
-      kind: isHonorCode(code) ? 'honor' : 'number',
-    }));
+      label: code,
+      color: 'k',
+      meaning_ko: code,
+      type: 'honor',
+    };
+  }
 
-    // 같은 라벨은 1개만
-    const unique = uniqByLabelPreserveOrder(base);
+  const suitByCode = { m: 'man', p: 'pin', s: 'sou' } as const;
+  const suitName = { m: '만', p: '통', s: '삭' } as const;
+  const rawRank = Number(match[1]);
+  const rank = rawRank === 0 ? 5 : rawRank;
+  const suitCode = match[2] as keyof typeof suitByCode;
 
-    // 숫자패/자패 분리
-    const numbers = unique.filter((o) => o.kind === 'number');
-    const honors = unique.filter((o) => o.kind === 'honor');
+  return {
+    code,
+    label: String(rank),
+    color: rawRank === 0 ? 'a' : 'k',
+    meaning_ko: `${rank}${suitName[suitCode]}`,
+    type: 'number',
+    suit: suitByCode[suitCode],
+    rank: rawRank,
+    aka: rawRank === 0,
+  };
+}
 
-    return { numbers, honors };
-  }, [problem.hand, problem.tsumo, tiles]);
+function NanikiruProblemView({ problem, tiles }: NanikiruProblemViewProps) {
+  const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
+  const [lastCheckedLabel, setLastCheckedLabel] = useState<string | null>(null);
+  const [tries, setTries] = useState(0);
+  const [revealReason, setRevealReason] = useState<RevealReason>(null);
 
-  const isCorrectNow =
-    selectedLabel != null && problem.answers.includes(selectedLabel);
+  const tileMap = useMemo(
+    () => new Map(tiles.map((tile) => [tile.code, tile])),
+    [tiles],
+  );
+  const handCodes = useMemo(() => parseTileCodes(problem.hand), [problem.hand]);
+  const drawnCode = useMemo(
+    () => parseTileCodes(problem.tsumo)[0] ?? problem.tsumo,
+    [problem.tsumo],
+  );
 
-  const handleSelect = (label: string) => {
-    setSelectedLabel(label);
-    // 선택 바꿔도 tries/reveal은 유지 (퍼즐이니까)
+  const shouldReveal = revealReason !== null;
+  const remainingTries = Math.max(0, MAX_TRIES - tries);
+
+  const getTile = (code: string) =>
+    tileMap.get(code) ?? createFallbackTile(code);
+
+  const handleSelect = (tile: NanikiruTile) => {
+    if (shouldReveal) return;
+    setSelectedLabel((previous) =>
+      previous === tile.meaning_ko ? null : tile.meaning_ko,
+    );
   };
 
   const handleCheckAnswer = () => {
     if (!selectedLabel || shouldReveal) return;
 
+    setLastCheckedLabel(selectedLabel);
     if (problem.answers.includes(selectedLabel)) {
       setRevealReason('correct');
       return;
     }
 
-    setTries((prev) => {
-      const next = prev + 1;
-      if (next >= MAX_TRIES) {
-        setRevealReason('maxTries');
-      }
-      return next;
-    });
+    const nextTries = tries + 1;
+    setTries(nextTries);
+    if (nextTries >= MAX_TRIES) {
+      setRevealReason('maxTries');
+      return;
+    }
+
+    // 같은 패를 실수로 연속 제출하지 않도록 오답 후 선택만 비웁니다.
+    setSelectedLabel(null);
   };
 
-  const remaining = Math.max(0, MAX_TRIES - tries);
-
   return (
-    <Section title="오늘의 나니키루" icon={<QuizIcon fontSize="small" />}>
-      {/* 상단 요약 */}
-      <Box sx={{ mb: 1.2 }}>
-        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-          문제 #{problem.id}
-        </Typography>
-        <Typography variant="body2" sx={{ mt: 0.4 }}>
-          {problem.round_text}
-        </Typography>
-      </Box>
+    <section className="mx-auto max-w-[560px] space-y-5">
+      <header>
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <p className="text-xs font-medium text-muted">오늘의 문제</p>
+            <h1 className="mt-1 text-xl font-bold tracking-tight">
+              오늘의 나니키루
+            </h1>
+          </div>
+          <span className="rounded-lg bg-surface-2 px-2.5 py-1 font-mono text-[11px] font-semibold text-muted">
+            #{problem.id}
+          </span>
+        </div>
+        <p className="mt-2 text-sm text-muted">{problem.round_text}</p>
+      </header>
 
-      {/* 도라 표시 */}
-      <Box sx={{ mb: 1.2, display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Typography variant="body2" sx={{ fontWeight: 600 }}>
-          도라:
-        </Typography>
-        {problem.dora_indicator.length === 0 ? (
-          <Typography variant="body2" color="text.secondary">
-            없음
-          </Typography>
-        ) : (
-          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-            {problem.dora_indicator.map((code) => (
-              <Chip
-                key={code}
-                label={codeToLabel(code, tiles as any[])}
-                size="small"
-                sx={{ fontSize: '0.75rem' }}
+      <div className="flex items-center gap-3">
+        <span className="w-16 shrink-0 text-xs font-semibold text-muted">
+          도라 표시
+        </span>
+        {problem.dora_indicator.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {problem.dora_indicator.map((code, index) => (
+              <MahjongTile
+                key={`${code}-${index}`}
+                tile={getTile(code)}
+                small
+                ariaLabel={`도라 표시패 ${getTile(code).meaning_ko}`}
               />
             ))}
-          </Stack>
+          </div>
+        ) : (
+          <span className="text-xs text-muted">없음</span>
         )}
-      </Box>
+      </div>
 
-      {/* 현재 패 */}
-      <Box sx={{ mb: 1.4 }}>
-        <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.6 }}>
-          현재 패
-        </Typography>
-        <Box
-          sx={{
-            bgcolor: 'action.hover',
-            borderRadius: 2,
-            p: 1.1,
-            border: '1px solid',
-            borderColor: 'divider',
-          }}
-        >
-          <Typography
-            variant="body2"
-            sx={{ fontFamily: 'monospace', lineHeight: 1.5 }}
-          >
-            {problem.hand}{' '}
-            <Box component="span" sx={{ color: 'text.secondary' }}>
-              +{' '}
-            </Box>
-            <Box
-              component="span"
-              sx={{ fontWeight: 800, color: 'primary.main' }}
-            >
-              [{problem.tsumo}]
-            </Box>
-          </Typography>
-        </Box>
-      </Box>
+      <div>
+        <div className="mb-2 flex items-end justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-bold">손패</h2>
+            <p className="mt-0.5 text-[11px] text-muted">
+              버릴 패를 직접 탭하세요.
+            </p>
+          </div>
+          <span className="font-mono text-[11px] font-semibold text-muted">
+            {shouldReveal ? '해설 공개됨' : `남은 시도 ${remainingTries}`}
+          </span>
+        </div>
 
-      {/* 선택지 */}
-      <Box sx={{ mb: 1.2 }}>
-        <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.8 }}>
-          어떤 패를 버리시겠습니까?
-        </Typography>
-        <Box sx={{ mt: 1 }}>
-          <Typography
-            variant="caption"
-            sx={{ fontWeight: 700, color: 'text.secondary' }}
-          >
-            숫자패
-          </Typography>
-          <Stack
-            direction="row"
-            spacing={1}
-            flexWrap="wrap"
-            useFlexGap
-            sx={{ mt: 0.8 }}
-          >
-            {options.numbers.map((opt) => {
-              const selected = selectedLabel === opt.label;
-              return (
-                <Chip
-                  key={opt.code + opt.label}
-                  label={opt.label}
-                  clickable
-                  color={selected ? 'primary' : 'default'}
-                  variant={selected ? 'filled' : 'outlined'}
-                  onClick={() => handleSelect(opt.label)}
-                  sx={{
-                    fontSize: '0.86rem',
-                    px: 1.25,
-                    py: 0.45,
-                    borderRadius: 2,
-                  }}
-                />
-              );
-            })}
-          </Stack>
-        </Box>
-
-        {options.honors.length > 0 && (
-          <Box sx={{ mt: 1.4 }}>
-            <Typography
-              variant="caption"
-              sx={{ fontWeight: 700, color: 'text.secondary' }}
-            >
-              자패
-            </Typography>
-            <Stack
-              direction="row"
-              spacing={1}
-              flexWrap="wrap"
-              useFlexGap
-              sx={{ mt: 0.8 }}
-            >
-              {options.honors.map((opt) => {
-                const selected = selectedLabel === opt.label;
+        <div className="rounded-card border border-border bg-surface px-3 pb-3 pt-5 shadow-[var(--shadow-1)]">
+          <div className="no-sb overflow-x-auto px-1 pb-2 pt-3">
+            <div className="flex min-w-max items-end gap-1">
+              {handCodes.map((code, index) => {
+                const tile = getTile(code);
                 return (
-                  <Chip
-                    key={opt.code + opt.label}
-                    label={opt.label}
-                    clickable
-                    color={selected ? 'primary' : 'default'}
-                    variant={selected ? 'filled' : 'outlined'}
-                    onClick={() => handleSelect(opt.label)}
-                    sx={{
-                      fontSize: '0.86rem',
-                      px: 1.25,
-                      py: 0.45,
-                      borderRadius: 2,
-                    }}
+                  <MahjongTile
+                    key={`${code}-${index}`}
+                    tile={tile}
+                    selected={selectedLabel === tile.meaning_ko}
+                    disabled={shouldReveal}
+                    ariaLabel={`${tile.meaning_ko} 버리기`}
+                    onSelect={() => handleSelect(tile)}
                   />
                 );
               })}
-            </Stack>
-          </Box>
-        )}
-      </Box>
 
-      {/* 버튼 + 결과(고정 배치: 세로) */}
-      <Box
-        sx={{
-          mt: 1.6,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'stretch',
-          gap: 1,
-        }}
-      >
-        <Button
-          variant="contained"
-          size="medium"
-          disabled={!selectedLabel || shouldReveal}
-          onClick={handleCheckAnswer}
-          sx={{
-            borderRadius: 2.2,
-            py: 1.05,
-            fontWeight: 800,
-          }}
-        >
-          정답 확인
-        </Button>
-
-        {/* 결과 영역: 항상 이 자리에 고정 */}
-        {!shouldReveal && tries > 0 && (
-          <Alert severity="error" variant="outlined" sx={{ borderRadius: 2 }}>
-            오답입니다. ({tries}/{MAX_TRIES})
-          </Alert>
-        )}
-
-        {shouldReveal && revealReason === 'correct' && (
-          <Alert severity="success" variant="filled" sx={{ borderRadius: 2 }}>
-            정답입니다! 🎉
-          </Alert>
-        )}
-
-        {shouldReveal && revealReason === 'maxTries' && (
-          <Alert severity="info" variant="outlined" sx={{ borderRadius: 2 }}>
-            {MAX_TRIES}번 틀려서 해설을 공개합니다.
-          </Alert>
-        )}
-
-        {/* 시도 안내(항상 같은 자리) */}
-        {!shouldReveal && (
-          <Typography variant="caption" color="text.secondary">
-            남은 시도: {remaining}/{MAX_TRIES}
-          </Typography>
-        )}
-      </Box>
-
-      <Divider sx={{ my: 2 }} />
-
-      {/* 해설 공개 */}
-      {shouldReveal && (
-        <Box sx={{ mt: 0.5 }}>
-          {/* 모범 답안 */}
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 900, mb: 0.8 }}>
-              📌 모범 답안
-            </Typography>
-
-            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-              {problem.answers.map((ans) => (
-                <Chip
-                  key={ans}
-                  label={ans}
-                  size="small"
-                  color="success"
-                  sx={{ fontSize: '0.86rem', fontWeight: 800, px: 1.2 }}
+              <div className="ml-2 border-l border-dashed border-border pl-3">
+                <MahjongTile
+                  tile={getTile(drawnCode)}
+                  selected={selectedLabel === getTile(drawnCode).meaning_ko}
+                  drawn
+                  disabled={shouldReveal}
+                  ariaLabel={`쯔모패 ${getTile(drawnCode).meaning_ko} 버리기`}
+                  onSelect={() => handleSelect(getTile(drawnCode))}
                 />
-              ))}
-            </Stack>
-          </Box>
+              </div>
+            </div>
+          </div>
 
-          {/* 해설 */}
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 900, mb: 0.8 }}>
-              📘 해설
-            </Typography>
+          <div className="mt-2 flex min-h-5 items-center justify-between gap-3 border-t border-border pt-3 text-xs">
+            <span className="text-muted">선택한 패</span>
+            <span className="font-bold text-jade">
+              {selectedLabel ?? '아직 선택하지 않음'}
+            </span>
+          </div>
+        </div>
+      </div>
 
-            <Box
-              sx={{
-                bgcolor: 'action.hover',
-                borderRadius: 2,
-                p: 1.2,
-                border: '1px solid',
-                borderColor: 'divider',
-              }}
-            >
-              {problem.explanations.map((line, idx) => (
-                <Typography
-                  key={idx}
-                  variant="body2"
-                  sx={{ mb: idx === problem.explanations.length - 1 ? 0 : 0.8 }}
-                >
-                  • {line}
-                </Typography>
-              ))}
-            </Box>
-          </Box>
-
-          {/* 효율 정보 */}
-          <Box sx={{ mb: 0.5 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 900, mb: 0.8 }}>
-              📊 효율 정보
-            </Typography>
-
-            <Box
-              sx={{
-                bgcolor: 'background.paper',
-                borderRadius: 2,
-                p: 1.2,
-                border: '1px solid',
-                borderColor: 'divider',
-              }}
-            >
-              <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
-                {problem.effective.raw}
-              </Typography>
-            </Box>
-          </Box>
-
-          {/* (선택) 사용자가 정답을 맞췄는지/틀렸는지 다시 요약 */}
-          {revealReason === 'maxTries' && selectedLabel && (
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ display: 'block', mt: 1 }}
-            >
-              마지막 선택: {selectedLabel} {isCorrectNow ? '(정답)' : '(오답)'}
-            </Typography>
-          )}
-        </Box>
+      {problem.calls.length > 0 && (
+        <div className="rounded-xl border border-border bg-surface-2 px-3.5 py-3">
+          <div className="text-[11px] font-semibold text-muted">후로</div>
+          <div className="mt-1.5 flex flex-wrap gap-2">
+            {problem.calls.map((call, index) => (
+              <span
+                key={`${call}-${index}`}
+                className="rounded-lg bg-surface px-2.5 py-1 text-xs font-semibold"
+              >
+                {call}
+              </span>
+            ))}
+          </div>
+        </div>
       )}
-    </Section>
+
+      <button
+        type="button"
+        disabled={!selectedLabel || shouldReveal}
+        onClick={handleCheckAnswer}
+        className="h-12 w-full rounded-full bg-jade text-[15px] font-semibold text-on-jade shadow-[var(--shadow-1)] transition hover:bg-jade-strong active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-35"
+      >
+        {shouldReveal ? '해설이 공개되었습니다' : '정답 확인'}
+      </button>
+
+      {!shouldReveal && tries > 0 && (
+        <div className="rounded-xl border border-vermilion/30 bg-vermilion/5 px-3.5 py-3">
+          <div className="text-sm font-bold text-vermilion">오답입니다</div>
+          <div className="mt-0.5 text-xs text-muted">
+            {lastCheckedLabel} 선택 · {tries}/{MAX_TRIES}회 · 다른 패를
+            골라보세요.
+          </div>
+        </div>
+      )}
+
+      {revealReason === 'correct' && (
+        <div className="rounded-xl border border-jade/30 bg-jade/10 px-3.5 py-3">
+          <div className="text-sm font-bold text-jade">정답입니다</div>
+          <div className="mt-0.5 text-xs text-muted">
+            {lastCheckedLabel}을 버리는 선택이 맞습니다.
+          </div>
+        </div>
+      )}
+
+      {revealReason === 'maxTries' && (
+        <div className="rounded-xl border border-border bg-surface-2 px-3.5 py-3">
+          <div className="text-sm font-bold">
+            세 번의 시도를 모두 사용했습니다
+          </div>
+          <div className="mt-0.5 text-xs text-muted">
+            아래에서 모범 답안과 해설을 확인하세요.
+          </div>
+        </div>
+      )}
+
+      {shouldReveal && (
+        <div className="space-y-5 border-t border-border pt-5">
+          <section>
+            <h2 className="text-xs font-semibold text-muted">모범 답안</h2>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {problem.answers.map((answer) => (
+                <span
+                  key={answer}
+                  className="rounded-full bg-jade px-3 py-1.5 text-sm font-semibold text-on-jade"
+                >
+                  {answer}
+                </span>
+              ))}
+            </div>
+          </section>
+
+          <section>
+            <h2 className="text-xs font-semibold text-muted">해설</h2>
+            <div className="mt-2 space-y-2 rounded-card border border-border bg-surface p-4">
+              {problem.explanations.map((explanation, index) => (
+                <div
+                  key={`${explanation}-${index}`}
+                  className="flex gap-2.5 text-sm leading-relaxed"
+                >
+                  <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-jade-soft text-[10px] font-black text-jade">
+                    {index + 1}
+                  </span>
+                  <p>{explanation}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section>
+            <div className="flex items-end justify-between gap-3">
+              <h2 className="text-xs font-semibold text-muted">수읽기</h2>
+              <span className="rounded-lg bg-surface-2 px-2 py-1 text-[10px] font-bold text-muted">
+                {problem.effective.shanten}샨텐
+              </span>
+            </div>
+            <div className="mt-2 rounded-card border border-border bg-surface-2 p-4">
+              <p className="font-mono text-xs leading-relaxed">
+                {problem.effective.raw}
+              </p>
+              {problem.effective.tiles &&
+                problem.effective.tiles.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2 border-t border-border pt-3">
+                    {problem.effective.tiles.map((tile) => (
+                      <span
+                        key={tile.label}
+                        className="rounded-lg border border-border bg-surface px-2.5 py-1.5 text-xs"
+                      >
+                        <strong>{tile.label}</strong>
+                        <span className="ml-1.5 font-mono text-muted">
+                          {tile.count}장
+                        </span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+            </div>
+          </section>
+
+          {revealReason === 'maxTries' && lastCheckedLabel && (
+            <p className="text-xs text-muted">
+              마지막 선택: {lastCheckedLabel}
+            </p>
+          )}
+        </div>
+      )}
+    </section>
   );
-};
+}
+
+/**
+ * 선택 날짜에 대응하는 문제를 주입하는 얇은 컨테이너입니다.
+ * key에 날짜와 문제 ID를 함께 사용해 날짜 이동 시 선택/시도/공개 상태가
+ * 이전 문제에서 다음 문제로 누적되지 않게 합니다.
+ */
+export function TodayNanikiruSection() {
+  const selectedDate = useAtomValue(selectedDateAtom);
+  const problem = useAtomValue(todayNanikiruProblemAtom);
+  const tiles = useAtomValue(nanikiruTilesAtom);
+
+  if (!problem) {
+    return (
+      <section className="mx-auto max-w-[560px] rounded-card border border-dashed border-border px-4 py-16 text-center">
+        <h1 className="text-base font-bold">
+          오늘의 문제를 불러오지 못했습니다.
+        </h1>
+        <p className="mt-2 text-xs text-muted">
+          날짜 정보와 나니키루 데이터셋을 확인해주세요.
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <NanikiruProblemView
+      key={`${selectedDate}-${problem.id}`}
+      problem={problem}
+      tiles={tiles}
+    />
+  );
+}

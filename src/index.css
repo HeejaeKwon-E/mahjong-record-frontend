@@ -1,68 +1,329 @@
+@import 'tailwindcss';
+
+/*
+ * Material 3 기반 전역 디자인 토큰
+ * --------------------------------------------------------------------------
+ * MUI 런타임 의존성을 다시 추가하지 않고도 모든 화면이 같은 Material 색상,
+ * 표면, 테두리와 타이포그래피 규칙을 사용하도록 semantic token을 한곳에서
+ * 관리합니다. 다크 모드의 초록색 primary는 기존 방향을 유지했습니다.
+ */
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --bg: #f6fbf7;
+  --surface: #ffffff;
+  --surface-2: #edf5f0;
+  --border: #c3ccc5;
+  --text: #171d19;
+  --muted: #58615b;
+  --jade: #006c48;
+  --jade-strong: #005237;
+  --jade-soft: #8cf8c3;
+  --on-jade: #ffffff;
+  --vermilion: #ba1a1a;
+  --on-vermilion: #ffffff;
+  --gold: #765a00;
+  --on-gold: #ffffff;
+  --silver: #59666a;
+  --bronze: #7a5738;
+  --tile-face: #fbf6e9;
+  --tile-face-2: #e9dfc6;
+  --tile-edge: #c4b58f;
+  --tile-back: #d9e7de;
+  --tile-back-2: #cadbd0;
+  --shadow-1:
+    0 1px 2px rgb(20 30 24 / 0.14), 0 1px 3px 1px rgb(20 30 24 / 0.08);
+  --shadow-2: 0 2px 6px 2px rgb(20 30 24 / 0.12);
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
+.dark {
+  --bg: #0e1511;
+  --surface: #151d18;
+  --surface-2: #202a23;
+  --border: #89938c;
+  --text: #dce5de;
+  --muted: #a9b4ac;
+  --jade: #70dba8;
+  --jade-strong: #8cf8c3;
+  --jade-soft: #005237;
+  --on-jade: #003823;
+  --vermilion: #ffb4ab;
+  --on-vermilion: #690005;
+  --gold: #e9c349;
+  --on-gold: #3d2f00;
+  --silver: #c0cacf;
+  --bronze: #e8bd97;
+  --tile-face: #fbf6e9;
+  --tile-face-2: #e4d9bc;
+  --tile-edge: #b0a382;
+  --tile-back: #173b2d;
+  --tile-back-2: #103025;
+  --shadow-1: 0 1px 3px rgb(0 0 0 / 0.42);
+  --shadow-2: 0 3px 8px rgb(0 0 0 / 0.42);
 }
-a:hover {
-  color: #535bf2;
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-jade: var(--jade);
+  --color-jade-strong: var(--jade-strong);
+  --color-jade-soft: var(--jade-soft);
+  --color-on-jade: var(--on-jade);
+  --color-vermilion: var(--vermilion);
+  --color-on-vermilion: var(--on-vermilion);
+  --color-gold: var(--gold);
+  --color-on-gold: var(--on-gold);
+  --color-silver: var(--silver);
+  --color-bronze: var(--bronze);
+  --radius-card: 0.75rem;
+}
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+html {
+  background: var(--bg);
+  color: var(--text);
 }
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
   min-width: 320px;
-  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--text);
+  font-family:
+    'Noto Sans KR',
+    Roboto,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+button,
+input {
+  font: inherit;
 }
 
 button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  touch-action: manipulation;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
+/* Temporary Navigation Drawer가 갑자기 나타나지 않도록 Material 계열의 짧은 진입 모션을 줍니다. */
+@keyframes drawer-backdrop-in {
+  from {
+    opacity: 0;
   }
-  a:hover {
-    color: #747bff;
+
+  to {
+    opacity: 1;
   }
-  button {
-    background-color: #f9f9f9;
+}
+
+@keyframes drawer-panel-in {
+  from {
+    transform: translateX(100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}
+
+.drawer-backdrop {
+  animation: drawer-backdrop-in 160ms ease-out both;
+}
+
+.drawer-panel {
+  animation: drawer-panel-in 220ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+/* 화면별로 흩어져 있던 숫자/제목 전용 글꼴을 하나의 UI 글꼴로 통일합니다. */
+.font-mono,
+.font-serif {
+  font-family: inherit;
+}
+
+/* Noto Sans KR에서 과도하게 두꺼운 800~900 합성 굵기를 만들지 않습니다. */
+.font-black,
+.font-extrabold {
+  font-weight: 700;
+}
+
+button:focus-visible,
+input:focus-visible {
+  outline: 3px solid color-mix(in oklab, var(--jade) 36%, transparent);
+  outline-offset: 2px;
+}
+
+/*
+ * Recharts는 키보드 탐색을 위해 SVG에 tabindex를 부여합니다. 일부 브라우저는
+ * 마우스로 데이터 포인트를 누른 경우에도 SVG 전체에 두꺼운 기본 focus outline을
+ * 표시하므로 이를 제거합니다. 차트의 active dot과 tooltip은 그대로 유지됩니다.
+ */
+.recharts-surface:focus {
+  outline: none;
+}
+
+/* 기록 탭의 플레이어 카드는 Material의 outlined/selected surface를 따릅니다. */
+.player-tile {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  color: var(--text);
+}
+
+.player-tile[data-selected='true'] {
+  border-color: var(--jade);
+  background: var(--jade-soft);
+  color: color-mix(in oklab, var(--jade-strong) 86%, #000 14%);
+  box-shadow: var(--shadow-1);
+}
+
+/* 가로 스크롤이 필요한 표와 손패는 스크롤 동작만 유지하고 트랙은 숨깁니다. */
+.no-sb {
+  scrollbar-width: none;
+}
+
+.no-sb::-webkit-scrollbar {
+  display: none;
+}
+
+/*
+ * 나니키루 마작패
+ * --------------------------------------------------------------------------
+ * Tailwind 유틸리티만으로 표현하기 어려운 패의 두께, 재질, 선택 이동만 전용
+ * 클래스로 둡니다. 색상은 전역 토큰을 사용해 라이트/다크 화면에서 동일합니다.
+ */
+.mahjong-tile {
+  position: relative;
+  display: flex;
+  width: 38px;
+  height: 52px;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  border: 0;
+  border-radius: 5px;
+  background: linear-gradient(170deg, var(--tile-face), var(--tile-face-2));
+  box-shadow:
+    0 3px 0 var(--tile-edge),
+    0 5px 12px rgb(0 0 0 / 0.32);
+  color: #26201a;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.mahjong-tile:disabled {
+  opacity: 1;
+}
+
+.mahjong-tile--interactive {
+  cursor: pointer;
+}
+
+.mahjong-tile--interactive:active {
+  transform: translateY(-3px);
+}
+
+.mahjong-tile--interactive:focus-visible {
+  outline: 3px solid color-mix(in oklab, var(--jade) 72%, transparent);
+  outline-offset: 4px;
+}
+
+.mahjong-tile--selected,
+.mahjong-tile--selected:active {
+  transform: translateY(-11px);
+  box-shadow:
+    0 3px 0 var(--tile-edge),
+    0 9px 18px rgb(0 0 0 / 0.38),
+    0 0 0 2px var(--jade);
+}
+
+.mahjong-tile--drawn:not(.mahjong-tile--selected) {
+  box-shadow:
+    0 3px 0 var(--tile-edge),
+    0 5px 12px rgb(0 0 0 / 0.32),
+    0 0 0 2px color-mix(in oklab, var(--gold) 72%, transparent);
+}
+
+.mahjong-tile--small {
+  width: 30px;
+  height: 41px;
+}
+
+.mahjong-tile__number,
+.mahjong-tile__honor {
+  font-family: 'Noto Serif KR', serif;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.mahjong-tile__number {
+  font-size: 17px;
+}
+
+.mahjong-tile__suit {
+  font-family: 'Noto Serif KR', serif;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.mahjong-tile__honor {
+  font-size: 21px;
+}
+
+.mahjong-tile--small .mahjong-tile__number {
+  font-size: 14px;
+}
+
+.mahjong-tile--small .mahjong-tile__suit {
+  font-size: 9px;
+}
+
+.mahjong-tile--small .mahjong-tile__honor {
+  font-size: 17px;
+}
+
+.mahjong-tile--man .mahjong-tile__suit {
+  color: #6b2b24;
+}
+
+.mahjong-tile--pin .mahjong-tile__suit {
+  color: #1c4e86;
+}
+
+.mahjong-tile--sou .mahjong-tile__suit,
+.mahjong-tile__honor--g {
+  color: #1e6b3e;
+}
+
+.mahjong-tile--aka .mahjong-tile__number,
+.mahjong-tile__honor--r {
+  color: var(--vermilion);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
   }
 }
