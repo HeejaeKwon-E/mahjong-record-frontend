@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ColorMode } from '../../App';
+import type { AppTab } from '../../common/appRoutes';
 
-export type AppTab = 'record' | 'daily' | 'all' | 'nanikiru';
+// 기존 AppNavigation의 타입 import 경로도 계속 사용할 수 있게 유지합니다.
+export type { AppTab } from '../../common/appRoutes';
 
 type AppNavigationProps = {
   currentTab: AppTab;

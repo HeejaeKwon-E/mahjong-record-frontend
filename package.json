@@ -7,14 +7,16 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:routes": "tsc --target es2022 --module esnext --outDir .routing-test-build src/common/appRoutes.ts && node --test tests/appRoutes.test.mjs"
   },
   "dependencies": {
     "jotai": "^2.15.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "recharts": "^3.10.1",
-    "react-is": "^19.2.0"
+    "react-is": "^19.2.0",
+    "react-router": "^7.9.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

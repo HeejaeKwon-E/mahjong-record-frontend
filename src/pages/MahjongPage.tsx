@@ -1,4 +1,6 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router';
+import { APP_TAB_PATHS, parseSharedDate, tabFromPath, tabUrl } from '../common/appRoutes';
 import { useAtom, useSetAtom } from 'jotai';
 import type { ColorMode } from '../App';
 import {
@@ -10,7 +12,7 @@ import {
 import { useServerSync } from '../hooks/useServerSync';
 import { PlayerSection } from '../components/tab/recordTab/PlayerSection';
 import { RoundOrderSection } from '../components/tab/recordTab/RoundOrderSection';
-import { AppNavigation, type AppTab } from '../components/layout/AppNavigation';
+import { AppNavigation } from '../components/layout/AppNavigation';
 import { usePlayersActions } from '../hooks/usePlayersActions';
 
 // 차트 라이브러리와 대용량 나니키루 JSON을 첫 화면 번들에서 분리합니다.
@@ -54,7 +56,7 @@ const FEEDBACK_STYLE: Record<FeedbackSeverity, string> = {
 };
 
 function parseDateString(value: string | null | undefined): Date | null {
-  if (!value?.trim()) return null;
+  if (!parseSharedDate(value ?? null)) return null;
   const [year, month, day] = value.split('-').map(Number);
   if (!year || !month || !day) return null;
   return new Date(year, month - 1, day);
@@ -102,6 +104,15 @@ export default function MahjongPage({
   mode,
   toggleColorMode,
 }: MahjongPageProps) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const tab = tabFromPath(location.pathname);
+  const rawUrlDate = tab === 'daily' ? new URLSearchParams(location.search).get('date') : null;
+  const urlDate = parseSharedDate(rawUrlDate);
+  // URL의 date는 주소가 변경된 시점에만 atom에 적용합니다.
+  // 그렇지 않으면 날짜 선택 시 navigate 처리 전에 이전 URL이 새 날짜를 덮어쓸 수 있습니다.
+  const lastAppliedLocationRef = useRef<string | null>(null);
+
   const { reloadDateData } = useServerSync();
   const [selectedDate, setSelectedDate] = useAtom(selectedDateAtom);
   const [serverToday, setServerToday] = useAtom(serverTodayAtom);
@@ -109,7 +120,6 @@ export default function MahjongPage({
   const setSessionPlayerIds = useSetAtom(selectedPlayerIdsAtom);
   const { reloadPlayers } = usePlayersActions();
 
-  const [tab, setTab] = useState<AppTab>('record');
   const [isSaving, setIsSaving] = useState(false);
   const [snackbar, setSnackbar] = useState<SnackbarState>({
     open: false,
@@ -160,6 +170,50 @@ export default function MahjongPage({
     return () => controller.abort();
   }, [serverToday, setSelectedDate, setServerToday]);
 
+  /**
+   * URL → Jotai 날짜 동기화 (직접 접속 / 새로고침 / 뒤로 가기).
+   *
+   * 공유 링크가 열리거나 브라우저 히스토리로 URL이 바뀌었을 때만 URL 값을 적용합니다.
+   * 단순한 selectedDate 변경에는 기존 URL 날짜를 다시 적용하지 않아,
+   * 날짜 버튼에서 setSelectedDate + navigate를 연달아 호출해도 충돌하지 않습니다.
+   */
+  useEffect(() => {
+    if (tab !== 'daily') {
+      // 다른 화면에서 날짜를 바꾼 뒤 브라우저 뒤로 가기로 돌아와도 URL을 다시 읽습니다.
+      lastAppliedLocationRef.current = null;
+      return;
+    }
+
+    const locationId = `${location.key}:${location.pathname}:${location.search}`;
+    if (lastAppliedLocationRef.current !== locationId) {
+      lastAppliedLocationRef.current = locationId;
+
+      if (rawUrlDate !== null && !urlDate) {
+        // 잘못된 날짜는 안전하게 제거합니다(히스토리에 불필요한 방문 기록을 남기지 않음).
+        navigate(APP_TAB_PATHS.daily, { replace: true });
+        return;
+      }
+
+      if (urlDate && selectedDate !== urlDate) {
+        // 새로 공유받은 날짜의 데이터가 이전 날짜의 입력 상태와 섞이지 않게 합니다.
+        setSessionPlayerIds([]);
+        setDraftRanking([]);
+        setSelectedDate(urlDate);
+        return;
+      }
+    }
+
+    // `/daily`만 입력한 사용자는 기존에 선택한 날짜, 없으면 서버에서 가져온
+    // 오늘 날짜로 `/daily?date=YYYY-MM-DD` 링크를 만들 수 있게 합니다.
+    if (rawUrlDate === null && selectedDate) {
+      navigate(tabUrl('daily', selectedDate), { replace: true });
+    }
+  }, [
+    location.key, location.pathname, location.search, navigate,
+    rawUrlDate, selectedDate, setDraftRanking, setSelectedDate,
+    setSessionPlayerIds, tab, urlDate,
+  ]);
+
   // 간단한 토스트는 별도 UI 라이브러리 없이 유지합니다. 2차에서 Sonner로 치환 가능합니다.
   useEffect(() => {
     if (!snackbar.open) return;
@@ -178,6 +232,12 @@ export default function MahjongPage({
     setSessionPlayerIds([]);
     setDraftRanking([]);
     setSelectedDate(normalized);
+
+    // 일별 화면에서는 날짜도 URL의 일부입니다. 다른 탭에서는 기존 UI 상태만 변경합니다.
+    // navigate를 통해 브라우저 뒤로/앞으로 이동 시 이전 날짜를 다시 선택할 수 있습니다.
+    if (tab === 'daily') {
+      navigate(tabUrl('daily', normalized));
+    }
 
     // useServerSync effect가 새 selectedDate로 자동 재조회하므로 여기서 수동 fetch하지 않습니다.
     // 이 방식으로 이전 closure를 참조하던 중복 요청을 제거합니다.
@@ -246,7 +306,8 @@ export default function MahjongPage({
         onDateChange={handleDateChange}
         onShiftDate={shiftDate}
         onTabChange={(nextTab) => {
-          setTab(nextTab);
+          // 이전의 로컬 tab state 대신 주소를 이동시키고, 현재 날짜는 일별 공유 링크에만 포함합니다.
+          if (nextTab !== tab) navigate(tabUrl(nextTab, selectedDate || serverToday || ''));
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
       />
